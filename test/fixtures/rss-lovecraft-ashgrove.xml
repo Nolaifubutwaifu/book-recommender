@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title type="html">Search Results for H.P. Lovecraft - Narrowed by: Ashgrove Library</title>
+  <link rel="self" href="" />
+  <author>
+    <name>SirsiDynix Enterprise</name>
+  </author>
+  <id>https://library-brisbane.ent.sirsidynix.net.au/client/en_AU/eLibCat/eLibCat/qu$003dH.P.$002bLovecraft$0026qf$003dLIBRARY$002509Library$0025091$00253AASH$002509Ashgrove$002bLibrary$0026ps$003d500?</id>
+  <updated>2026-11-19T10:25:36Z</updated>
+  <entry>
+    <title type="html">Title Children of Lovecraft</title>
+    <link rel="alternate" type="html" href="https://library-brisbane.ent.sirsidynix.net.au/client/en_AU/eLibCat/search/detailnonmodal?qu=H.P.+Lovecraft&amp;qf=LIBRARY%09Library%091%3AASH%09Ashgrove+Library&amp;d=ent%3A%2F%2FSD_ILS%2F0%2FSD_ILS%3A903726%7EILS%7E0&amp;ps=500" title="Title Children of Lovecraft" />
+    <id>ent://SD_ILS/0/SD_ILS:903726</id>
+    <updated>2026-11-19T10:25:36Z</updated>
+    <published>2026-11-19T10:25:36Z</published>
+    <content type="html">Author&amp;#160;Datlow, Ellen, editor.&lt;br/&gt;Format&amp;#160;Books&lt;br/&gt;Publication Date&amp;#160;2016&lt;br/&gt;Call Number&amp;#160;AD-PBK CHI&lt;br/&gt;ISBN&amp;#160;9781506700045&lt;br/&gt;</content>
+  </entry>
+  <entry>
+    <title type="html">Title The mammoth book of folk horror : evil lives on in the land!</title>
+    <link rel="alternate" type="html" href="https://library-brisbane.ent.sirsidynix.net.au/client/en_AU/eLibCat/search/detailnonmodal?qu=H.P.+Lovecraft&amp;qf=LIBRARY%09Library%091%3AASH%09Ashgrove+Library&amp;d=ent%3A%2F%2FSD_ILS%2F0%2FSD_ILS%3A1068283%7EILS%7E0&amp;ps=500" title="Title The mammoth book of folk horror : evil lives on in the land!" />
+    <id>ent://SD_ILS/0/SD_ILS:1068283</id>
+    <updated>2026-11-19T10:25:36Z</updated>
+    <published>2026-11-19T10:25:36Z</published>
+    <content type="html">Author&amp;#160;Jones, Stephen, 1953-, editor.&amp;#160;Smith, Michael Marshall, photographer.&lt;br/&gt;Format&amp;#160;Regular print&lt;br/&gt;Publication Date&amp;#160;2021&lt;br/&gt;Call Number&amp;#160;AD-PBK MAM&lt;br/&gt;ISBN&amp;#160;9781510749863&lt;br/&gt;</content>
+  </entry>
+  <entry>
+    <title type="html">Title Color out of space [dvd].</title>
+    <link rel="alternate" type="html" href="https://library-brisbane.ent.sirsidynix.net.au/client/en_AU/eLibCat/search/detailnonmodal?qu=H.P.+Lovecraft&amp;qf=LIBRARY%09Library%091%3AASH%09Ashgrove+Library&amp;d=ent%3A%2F%2FSD_ILS%2F0%2FSD_ILS%3A1033793%7EILS%7E0&amp;ps=500" title="Title Color out of space [dvd]." />
+    <id>ent://SD_ILS/0/SD_ILS:1033793</id>
+    <updated>2026-11-19T10:25:36Z</updated>
+    <published>2026-11-19T10:25:36Z</published>
+    <content type="html">Author&amp;#160;Motion picture adaptation of (work). Lovecraft, H. P. (Howard Phillips), 1890-1937. Color out of space.&amp;#160;Stanley, Richard, 1966-, screenwriter, film director.&amp;#160;Amaris, Scarlett, screenwriter.&amp;#160;Noah, Daniel, 1972-, film producer.&amp;#160;Cage, Nicolas, 1965-, actor.&lt;br/&gt;Format&amp;#160;Video disc&lt;br/&gt;Publication Date&amp;#160;2020&lt;br/&gt;Call Number&amp;#160;DVD&lt;br/&gt;</content>
+  </entry>
+</feed>
+
