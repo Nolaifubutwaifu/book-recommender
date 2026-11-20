@@ -114,3 +114,18 @@ Excluded: `LHQ` (Library HQ, not a public branch). Facet lists only show branche
 - Text column: `.results_bio`. Results list container: `#results_wrapper`.
 - The page itself shows "Available / Holds / Copies" totals for physical items but no branch detail, which is the gap the extension fills.
 - No Content-Security-Policy `script-src` on the catalogue (only `frame-ancestors`).
+
+## 10. Other networks (20 Nov 2026)
+
+**SirsiDynix Enterprise** (same endpoints as Brisbane, settings in `extension/lib/libraries.mjs`):
+- Gold Coast, profile `default`: search feed and branch filter work. Copy lookups are blocked for scripts by the site's bot protection, so status wording is unconfirmed.
+- Libraries Tasmania, profile `library`: no `sdcsrf` token needed. No "Library" filter. Statuses: a shelf location ("Adult fiction", "Non-fiction", "Stack") means on shelf; "Due 4/08/25", "In Transit", "Hold awaiting pickup", "Missing" mean not. Lookups also list school libraries; the branch list uses the 45 public branches from libraries.tas.gov.au/map.
+- Field names differ: author is `AUTHOR` (Brisbane), `INITIAL_AUTHOR_SRCH` (Gold Coast, Tasmania results) or `AUTHOR_OTHER_TALIS_FULL` (Tasmania detail); detail title `TITLE`, `INITIAL_TITLE_SRCH` or `T245_DISPLAY`.
+
+**Spydus** (`extension/lib/spydus.mjs`):
+- Search: `/cgi-bin/spydus.exe/ENQ/OPAC/BIBENQ?ENTRY=<q>&ENTRY_NAME=BS&ENTRY_TYPE=K&NRECS=20`. Cards in `#result-content-list`, each `.card-list-text` with `.card-title`, a format icon `.recfrmt-icon[title]` and a "View availability" link. Cards show no author.
+- Copies: `/cgi-bin/spydus.exe/XHLD/OPAC/BIBENQ/<set>/<irn>` returns a table Location | Collection | Call number | Status/Desc. `<set>` is a session number and expires.
+- Stable record page: `/cgi-bin/spydus.exe/ENQ/OPAC/BIBENQ?SETLVL=&IRN=<irn>`; it contains a fresh holdings link.
+- Statuses: "Available", "On loan - Due: 11 Dec 2026". Online items are listed under "eLibrary" or "Online Library".
+- Melbourne also has an RSS feed (`&FMT=RSS&XSLT=rss.xsl`); Canberra does not, so the client reads results pages for both. Canberra's `WPAC` pages redirect to an app shell; `OPAC` works.
+- No token needed.

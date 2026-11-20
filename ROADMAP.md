@@ -136,8 +136,8 @@ Plan (built on branch `multi-library`, one commit per network, so any step can b
 - [x] Per-library settings: web address, profile, branch list, "on shelf" rule, home and second branch per network (`extension/lib/libraries.mjs`).
 - [~] Gold Coast: added (13 branches). Not verified: its copy lookups are bot-protected, so only a real browser can check them, and its status wording is assumed to match Brisbane. Needs one manual check.
 - [x] Libraries Tasmania: 45 public branches, own status rule (shelf location = on shelf, "Due <date>", "In Transit", "Hold awaiting pickup" = not), no token needed, no branch filter. Verified end to end.
-- [ ] SA One Card: only if it can be checked without getting past the bot check automatically.
-- [ ] Spydus adapter: City of Melbourne, then Libraries ACT.
+- [ ] SA One Card: skipped. A bot check sits in front of the site, and getting past it automatically is not acceptable. Needs a person to open it once and note the profile name in the address (`/client/en_AU/<council>/`) and the Status wording on a book page.
+- [x] Spydus adapter (`extension/lib/spydus.mjs`): City of Melbourne (7 branches) and Libraries ACT (9 branches). Verified end to end. Slower than SirsiDynix: search pages are heavy and copies need two requests outside a results page. Cards show no author, so likes on Spydus result pages match on title only. No "For you" panel on Spydus home pages yet (it is on results pages).
 - [ ] Later: Sydney (Montage), Darwin (WorldCat), Perth.
 
 The recommendation pipeline needs no changes: it only receives "search" and "get copies" functions, so each network plugs in its own.
