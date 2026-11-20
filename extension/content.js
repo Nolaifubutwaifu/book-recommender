@@ -146,7 +146,7 @@
           : 'None of your best matches are on a shelf right now. Like a few more books or try again later.';
       } catch (err) {
         console.warn('[Shelf Check]', err);
-        status.textContent = 'Could not build recommendations right now. Try reloading later.';
+        status.textContent = 'Could not check the catalogue right now. Reload the page and try again.';
       }
     }
     panel.addEventListener('toggle', () => panel.open && run());

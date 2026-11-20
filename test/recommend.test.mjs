@@ -52,6 +52,10 @@ test('pickRecords keeps physical editions of the same book only', () => {
     { catKey: '4', title: 'Shining girls', author: 'Beukes, Lauren', format: 'Books' },
   ];
   assert.deepEqual(pickRecords({ title: 'The Shining', author: 'Stephen King' }, records).map((r) => r.catKey), ['1', '3']);
+  const got = [{ catKey: '7', title: 'A game of thrones', author: 'Martin, George R. R., author.', format: 'Books' }];
+  assert.equal(pickRecords({ title: 'A Game of Thrones', author: 'George R. R. Martin' }, got).length, 1, '"game" in a title is fine');
+  const leGuin = [{ catKey: '8', title: 'A wizard of Earthsea', author: 'Le Guin, Ursula K., 1929-2018, author.', format: 'Books' }];
+  assert.equal(pickRecords({ title: 'A Wizard of Earthsea', author: 'Ursula K. Le Guin' }, leGuin).length, 1, 'two-word surname');
 });
 
 test('recommend runs the whole pipeline with fake services', async () => {
@@ -78,4 +82,15 @@ test('recommend runs the whole pipeline with fake services', async () => {
   // Best match first; Rebecca matches well but every copy is checked out, so it is left out.
   assert.deepEqual(recs.map((r) => [r.doc.title, r.catKeys]), [['The Shining', ['3']], ['Misery', ['9']]]);
   assert.match(subjectUrl('horror tales'), /q=subject%3A%22horror\+tales%22\+language%3Aeng/);
+});
+
+test('recommend fails loudly when availability lookups fail (e.g. expired catalogue session)', async () => {
+  const deps = {
+    cached: (key, ttl, fn) => fn(),
+    fetchJson: async (url) => ({ docs: [{ key: url.includes('title=') ? '/works/1' : '/works/3', title: url.includes('title=') ? 'Dracula' : 'Carmilla', author_name: ['X Y'], author_key: ['A'], subject: ['Vampires'] }] }),
+    searchCatalogue: async () => [{ catKey: '3', title: 'Carmilla', author: 'Y, X', format: 'Books' }],
+    getCopies: async () => { throw new Error('Copy lookup for 3 failed: HTTP 403'); },
+  };
+  const taste = [{ key: 'dracula|y', title: 'Dracula', author: 'X Y', signal: 'liked', addedAt: '2024-01-01' }];
+  await assert.rejects(recommend({ taste, deps }), /HTTP 403/);
 });

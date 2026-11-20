@@ -89,13 +89,15 @@ function reasonFor(doc, shared, likedAuthor, seeds) {
   return `Because you liked ${best.s.doc.title}: ${best.common.slice(0, 2).join(', ')}`;
 }
 
-const NOT_A_BOOK = /\b(dvd|blu-ray|videorecording|sound recording|cd|kit|game)\b/i;
+// Media words are checked in the format only: titles like "A Game of Thrones" are books.
+const NOT_A_BOOK_FORMAT = /dvd|blu-ray|video|sound|music|\bcd\b|kit|game/i;
+const MEDIA_TAG = /\[(dvd|blu-ray|videorecording|sound recording)/i; // catalogue titles like "The shining [dvd]"
 
 // Catalogue records (from catalogue.search) that are the same book: same title and author, physical, not a film or audio CD.
 export const pickRecords = (doc, records) =>
   records
     .filter((r) => r.catKey && normTitle(r.title) === normTitle(doc.title) && (!r.author || surname(r.author) === surname(doc.author)))
-    .filter((r) => !NOT_A_BOOK.test(`${r.format} ${r.title}`))
+    .filter((r) => !NOT_A_BOOK_FORMAT.test(r.format ?? '') && !MEDIA_TAG.test(r.title))
     .slice(0, 3);
 
 
@@ -136,10 +138,12 @@ export async function recommend({ taste, deps, onProgress = () => {}, want = 10 
   const found = []; // candidates come in best-match order, so `found` stays ranked
   for (const [n, c] of candidates.entries()) {
     onProgress(`Checking the catalogue (${n + 1} of ${candidates.length})...`, [...found]);
-    const catKeys = await quietly(() => deps.cached(`cat:match:${c.doc.key}`, 7 * DAY, async () =>
+    // "match2": matches cached before the surname and title-filter fixes could be wrongly empty.
+    const catKeys = await quietly(() => deps.cached(`cat:match2:${c.doc.key}`, 7 * DAY, async () =>
       pickRecords(c.doc, await deps.searchCatalogue(`${shortTitle(c.doc.title)} ${surname(c.doc.author)}`)).map((r) => r.catKey)), []);
     if (!catKeys.length) continue;
-    const copies = (await quietly(() => Promise.all(catKeys.map(deps.getCopies)), [])).flat();
+    // Not swallowed: if the catalogue session expired, every lookup fails and the panel should say so.
+    const copies = (await Promise.all(catKeys.map(deps.getCopies))).flat();
     if (!copies.some((c) => c.SD_ITEM_STATUS.startsWith('On Shelf'))) continue;
     found.push({ ...c, catKeys });
     if (found.length >= want) break;

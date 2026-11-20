@@ -14,6 +14,10 @@ test('surname handles catalogue, Open Library and suffix formats', () => {
   assert.equal(surname('H.P. Lovecraft'), 'lovecraft');
   assert.equal(surname('Kurt Vonnegut Jr.'), 'vonnegut');
   assert.equal(surname(null), '');
+  assert.equal(surname('Ursula K. Le Guin'), surname('Le Guin, Ursula K., 1929-2018, author.'));
+  assert.equal(surname('Daphne du Maurier'), surname('Du Maurier, Daphne, 1907-1989, author.'));
+  assert.equal(surname('Gabriel García Márquez'), surname('García Márquez, Gabriel, 1927-2014, author.'));
+  assert.equal(surname('Silvia Moreno-Garcia'), surname('Moreno-Garcia, Silvia, author.'));
   assert.equal(bookKey('The Shining', 'Stephen King'), bookKey('Shining', 'King, Stephen, 1947- author.'));
 });
 

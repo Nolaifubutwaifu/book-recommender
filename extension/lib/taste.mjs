@@ -9,10 +9,11 @@ const clean = (s) =>
 export const normTitle = (t = '') => clean(t.split(/[:;([/]/)[0]).replace(/^(the|a|an) /, '');
 
 // Works for "Lovecraft, H. P. (Howard Phillips), 1890-1937, author." (catalogue) and "H.P. Lovecraft" (Open Library).
+// Returns the last word only, so "Le Guin, Ursula K." and "Ursula K. Le Guin" both give "guin".
 export function surname(author = '') {
   const first = (author ?? '').split(';')[0];
   const raw = first.includes(',') ? first.split(',')[0] : first.trim().split(/\s+/).filter((w) => !/^(jr|sr|ii|iii)\.?$/i.test(w)).pop();
-  return clean(raw ?? '');
+  return clean(raw ?? '').split(' ').pop();
 }
 
 export const bookKey = (title, author) => `${normTitle(title)}|${surname(author)}`;
@@ -75,7 +76,9 @@ export function mergeTaste(existing, incoming) {
 }
 
 // --- storage (extension only) ---
-export const loadTaste = async () => (await chrome.storage.local.get({ taste: [] })).taste;
+// Keys are recomputed on load so books saved before a matching change still line up (button choices win on duplicates).
+export const loadTaste = async () =>
+  mergeTaste([], (await chrome.storage.local.get({ taste: [] })).taste.map((i) => ({ ...i, key: bookKey(i.title, i.author) })));
 export const saveTaste = (taste) => chrome.storage.local.set({ taste });
 
 // signal: 'liked' | 'disliked' | null (remove)
