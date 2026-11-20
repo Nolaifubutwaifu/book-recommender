@@ -90,21 +90,32 @@ The useful core. Works with zero setup beyond picking a branch.
 **Done when:** searching "Lovecraft" shows, without clicking, which results you can walk in and grab today.
 Result: done. Not yet built: badges on the single-book detail page, Firefox.
 
-### Phase 2: Taste profile and recommendations (2 weeks)
+### Phase 2: Taste profile and recommendations (built 20 Nov 2026, needs your verdict)
 
-- [ ] Heart and thumbs-down buttons on every result and detail page.
-- [ ] Import from Goodreads (Library export CSV) and StoryGraph (CSV export). Map ratings: 4 to 5 stars = liked, 1 to 2 = disliked, 3 = ignored.
-- [ ] "For you at Ashgrove" panel on the catalogue home page and search pages: 10 books.
-- [ ] Recommendation pipeline (no LLM yet):
-  1. For each liked book, look up subjects and authors on Open Library.
-  2. Collect candidate books sharing subjects or authors, ranked by overlap.
-  3. Remove books already read or disliked.
-  4. Check each candidate against the catalogue (title + author search via RSS).
-  5. Check availability at the home branch. Show on-shelf first, then on-loan with hold count.
-- [ ] Each recommendation shows a one-line reason: "Because you liked *The Haunter of the Dark*: same subjects (cosmic horror, New England)".
-- [ ] Cache catalogue matches for 7 days.
+- [x] "Like" and "Not for me" buttons on every search result and book detail page.
+- [x] Import from Goodreads (Library export CSV) and StoryGraph (CSV export), on the extension's options page. 4 to 5 stars = liked, 1 to 2 stars or did-not-finish = not for me, 3 or unrated = read (never recommended). To-read is skipped.
+- [x] "For you at Ashgrove" panel: open on the catalogue home page, collapsed on search pages (only builds when opened), 10 books with cover, availability badge and reason.
+- [x] Recommendation pipeline (no LLM), `extension/lib/recommend.mjs`:
+  1. For each liked book (latest 30), look up subjects and author on Open Library.
+  2. Profile: subjects weighted by how many liked books share them, plus liked authors.
+  3. Candidates: popular English books for the top 6 subjects (exact `subject:"..."` search) and top 3 authors.
+  4. Score: weighted shared subjects (damped for books with very long subject lists) plus a liked-author bonus. Max 2 books per author.
+  5. Remove books already liked, disliked or read.
+  6. Match each candidate in the catalogue (title + author, physical editions only, no DVDs or audio CDs).
+  7. Rank: on shelf at home, on shelf at second library, home copy on loan, on shelf elsewhere, none on shelf. Then by similarity.
+- [x] One-line reason per book: "Because you liked Dracula: horror, horror tales" or "More by Shirley Jackson, who wrote The Haunting of Hill House".
+- [x] Caches: Open Library lookups 7 to 30 days, catalogue matches 7 days, availability 10 minutes.
+- [x] Tests: unit tests for import, matching and scoring; end-to-end test covers import, like button, panel, detail and home pages.
 
-**Done when:** after importing 20+ books, at least 7 of 10 recommendations are books you would actually consider.
+First build takes about 45 to 60 seconds (Open Library at 1 request per second, catalogue at 2 per second). Repeat visits use the cache.
+
+Known limits:
+- Disliked books are only excluded. They don't push similar books down yet.
+- Open Library subjects are crowd-sourced and noisy. Some picks are loose (e.g. *World War Z* for a Dracula fan).
+- Goodreads and StoryGraph column names were written from documentation and tested on sample files, not on a real export yet.
+
+**Done when:** after importing 20+ books, at least 7 of 10 recommendations are books you would actually consider. **Not verified yet: needs a real import from you.**
+On a 5-book horror sample: Shirley Jackson, Frankenstein, Dr Jekyll, Dorian Gray, The Historian, Interview with the Vampire, which reads as plausible.
 
 ### Phase 3: Natural-language search with an LLM (1 to 2 weeks)
 
@@ -166,7 +177,7 @@ Priority: **P0** = MVP, **P1** = makes it good, **P2** = nice to have.
 |---|---|---|
 | Extension | Plain JavaScript, Manifest V3, no build step | Phase 1 is small enough to load straight from the folder. Revisit TypeScript or [WXT](https://wxt.dev) if Phase 2 grows or Firefox support is needed. |
 | Overlay UI | Plain DOM + small CSS file in Phase 1, Preact if it grows | The overlay is a few badges and toggles. No need for a big framework. |
-| Storage | `chrome.storage.local` | No accounts, no database, private by default. |
+| Storage | `chrome.storage.local` (taste, caches), `chrome.storage.sync` (branch settings) | No accounts, no database, private by default. |
 | Backend | One Vercel function (Node.js) | Only needed for the LLM key and rate limiting. |
 | LLM | Claude Haiku 5.5 via AI SDK | Fast and cheap enough for per-search calls. |
 | Book data | Open Library API (free, no key), Google Books API (free tier, key) | Subjects, authors, descriptions, edition ISBNs. |

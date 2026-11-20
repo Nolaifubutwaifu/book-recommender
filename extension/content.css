@@ -29,3 +29,41 @@
 .bsf-amber { background: #fdf2dc; border-color: #e8c27a; color: #6b4500; }
 .bsf-red   { background: #fbe6e6; border-color: #e3a1a1; color: #8a1f1f; }
 .bsf-grey  { background: #eef1f4; border-color: #c9d3dd; color: #3d4a57; }
+
+/* Like / not-for-me buttons */
+.bsf-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 2px 0 6px; }
+.bsf-row .bsf-badge { margin: 0; }
+.bsf-taste { display: inline-flex; gap: 4px; }
+.bsf-taste-btn {
+  padding: 2px 9px;
+  border: 1px solid #c9d3dd;
+  border-radius: 999px;
+  background: #fff;
+  color: #3d4a57;
+  font: 13px/1.4 system-ui, sans-serif;
+  cursor: pointer;
+}
+.bsf-taste-btn:hover { border-color: #8a9bab; }
+.bsf-taste-btn:focus-visible { outline: 2px solid #0b5cad; outline-offset: 1px; }
+.bsf-liked[aria-pressed='true'] { background: #fbe6ee; border-color: #d98aa6; color: #8a1f47; }
+.bsf-disliked[aria-pressed='true'] { background: #eef1f4; border-color: #8a9bab; color: #1d2a36; text-decoration: line-through; }
+
+/* For you panel */
+.bsf-recs {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #c9d3dd;
+  border-radius: 6px;
+  background: #fff;
+  font: 14px/1.4 system-ui, sans-serif;
+  color: #1d2a36;
+}
+.bsf-recs summary { font-weight: 700; font-size: 15px; cursor: pointer; }
+.bsf-recs-status { margin: 6px 0; color: #4a5a6a; }
+.bsf-recs-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.bsf-rec { display: flex; gap: 10px; padding: 8px; border: 1px solid #e6ebf0; border-radius: 6px; }
+.bsf-rec-cover { width: 45px; height: 68px; object-fit: cover; flex: none; background: #eef1f4; }
+.bsf-rec-title { font-weight: 600; color: #0b5cad; }
+.bsf-rec-author { color: #4a5a6a; }
+.bsf-rec .bsf-badge { display: block; width: fit-content; margin: 4px 0; border-radius: 10px; }
+.bsf-rec-reason { margin: 0; font-size: 12px; color: #4a5a6a; }

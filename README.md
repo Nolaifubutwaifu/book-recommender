@@ -10,6 +10,8 @@ It shows, on every search result, whether the book is on the shelf at **your** l
 
 Above the results: "Only on shelf at my library" filter, a format filter, and a link that limits the whole search to books your library holds.
 
+**Recommendations:** mark books with **Like** or **Not for me** (on search results and book pages), or import your Goodreads or StoryGraph export from the extension's options page. A "For you" panel (open on the catalogue home page, collapsed above search results) then lists 10 books you are likely to enjoy, available at your library first, each with a short reason. Book data comes from [Open Library](https://openlibrary.org). Your taste profile stays in your browser.
+
 Not affiliated with Brisbane City Council. Uses only what the public catalogue page itself loads, at most 2 requests per second.
 
 ## Install (developer mode)
@@ -18,6 +20,7 @@ Not affiliated with Brisbane City Council. Uses only what the public catalogue p
 2. In Chrome, open `chrome://extensions` and switch on **Developer mode** (top right).
 3. Click **Load unpacked** and pick the `extension` folder.
 4. Click the puzzle icon in the toolbar, pin **Shelf Check**, click it and choose your library.
+   For recommendations, click "Taste profile and Goodreads / StoryGraph import" in the same menu.
 5. Search the catalogue as usual.
 
 Works in Chrome, Edge and Brave.
@@ -33,5 +36,7 @@ node scripts/onshelf.mjs "H.P. Lovecraft" ASH   # command-line version: what's o
 
 - `extension/`: the extension (Manifest V3, plain JavaScript, no build step).
 - `extension/lib/catalogue.mjs`: catalogue client, shared by the extension and the scripts.
+- `extension/lib/taste.mjs`: taste profile, Goodreads and StoryGraph import.
+- `extension/lib/recommend.mjs`: recommendation pipeline (Open Library + catalogue).
 - `docs/catalogue-notes.md`: how the catalogue's data sources work.
-- `ROADMAP.md`: what's next (taste profile, recommendations, natural-language search).
+- `ROADMAP.md`: what's next (natural-language search).

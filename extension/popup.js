@@ -11,3 +11,8 @@ for (const [id, key, empty] of [['home', 'homeBranch', 'Choose your library'], [
     document.getElementById('saved').textContent = 'Saved.';
   });
 }
+
+document.getElementById('taste').addEventListener('click', (e) => {
+  e.preventDefault();
+  chrome.runtime.openOptionsPage();
+});

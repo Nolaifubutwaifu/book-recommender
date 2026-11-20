@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Shelf Check: your taste profile</title>
+    <style>
+      body { max-width: 720px; margin: 32px auto; padding: 0 16px; font: 15px/1.5 system-ui, sans-serif; color: #1d2a36; }
+      h1 { font-size: 22px; margin-bottom: 4px; }
+      h2 { font-size: 17px; margin-top: 28px; }
+      .muted { color: #4a5a6a; font-size: 13px; }
+      .box { padding: 12px 14px; border: 1px solid #c9d3dd; border-radius: 6px; background: #f4f7fa; }
+      ul { padding-left: 0; list-style: none; }
+      li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid #e6ebf0; }
+      button { font: inherit; padding: 2px 10px; cursor: pointer; }
+      #msg { font-weight: 600; }
+      #msg.error { color: #8a1f1f; }
+    </style>
+  </head>
+  <body>
+    <h1>Your taste profile</h1>
+    <p class="muted">Stored only in this browser. Used to recommend books available at Brisbane City Council libraries. Unofficial tool, not affiliated with the council.</p>
+
+    <h2>Import</h2>
+    <div class="box">
+      <label for="file"><strong>Goodreads or StoryGraph export (CSV)</strong></label><br />
+      <input id="file" type="file" accept=".csv,text/csv" />
+      <p class="muted">
+        Goodreads: My Books, then Import and export, then Export Library.
+        StoryGraph: Manage Account, then Export StoryGraph Library.
+        4 and 5 stars count as liked, 1 and 2 stars (and did-not-finish) as not for you, the rest as read.
+        To-read books are ignored.
+      </p>
+      <p id="msg" role="status"></p>
+    </div>
+
+    <h2>Liked (<span id="liked-n">0</span>)</h2>
+    <ul id="liked"></ul>
+    <h2>Not for me (<span id="disliked-n">0</span>)</h2>
+    <ul id="disliked"></ul>
+    <h2>Read, no strong opinion (<span id="read-n">0</span>)</h2>
+    <p class="muted">These are never recommended to you.</p>
+
+    <h2>Reset</h2>
+    <button id="clear" type="button">Delete my taste profile</button>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

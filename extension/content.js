@@ -1,20 +1,28 @@
-// Adds branch availability badges and filters to catalogue search results.
-// Runs as a content script on the catalogue, so requests are same-origin and use the page's own token.
+// Shelf Check content script. On the catalogue it adds:
+// - search results: availability badges, filters, like / not-for-me buttons, a "For you" panel
+// - book detail pages: like / not-for-me buttons
+// - home page: the "For you" panel
+// Runs on the catalogue origin, so catalogue requests are same-origin and use the page's own token.
 (async () => {
-  const cells = [...document.querySelectorAll('.results_cell')];
   const resultsWrapper = document.getElementById('results_wrapper');
-  if (!cells.length || !resultsWrapper) return; // not a results page
+  const detail = document.getElementById('detail_biblio0');
+  const isHome = /\/client\/[^/]+\/eLibCat\/?$/.test(location.pathname);
+  if (!resultsWrapper && !detail && !isHome) return;
 
   const url = (path) => chrome.runtime.getURL(path);
-  const cat = await import(url('lib/catalogue.mjs'));
+  const [cat, taste, rec, cache] = await Promise.all(
+    ['catalogue', 'taste', 'recommend', 'cache'].map((m) => import(url(`lib/${m}.mjs`))),
+  );
   const branches = await (await fetch(url('lib/branches.json'))).json();
   const settings = await chrome.storage.sync.get({ homeBranch: '', secondBranch: '', onlyOnShelf: false, format: 'all' });
   const home = branches.find((b) => b.code === settings.homeBranch);
   const second = branches.find((b) => b.code === settings.secondBranch);
   const token = [...document.scripts].map((s) => s.textContent).join('\n').match(/__sdcsrf = "([^"]+)"/)?.[1];
   const session = { token, cookie: '' }; // same-origin fetch sends the page's cookies itself
+  const tasteByKey = new Map((await taste.loadTaste()).map((i) => [i.key, i.signal]));
 
   // --- helpers ---------------------------------------------------------------
+  const el = (tag, className, text) => Object.assign(document.createElement(tag), className ? { className } : {}, text ? { textContent: text } : {});
   const short = (name) => name.replace(/ Library.*$/, ''); // "Garden City Library (Westfield)" -> "Garden City"
   const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
   const sentence = (parts) => {
@@ -23,30 +31,148 @@
   };
   const friendlyStatus = (s) =>
     /checked out/i.test(s) ? 'on loan' : /transit/i.test(s) ? 'in transit' : /hold/i.test(s) ? 'on the holds shelf' : s.toLowerCase();
-  const listBranches = (names) =>
-    names.slice(0, 3).map(short).join(', ') + (names.length > 3 ? ` +${names.length - 3} more` : '');
+  const listBranches = (names) => names.slice(0, 3).map(short).join(', ') + (names.length > 3 ? ` +${names.length - 3} more` : '');
+  const detailUrl = (catKey) => `${cat.BASE}/client/en_AU/eLibCat/search/detailnonmodal/ent:$002f$002fSD_ILS$002f0$002fSD_ILS:${catKey}/one`;
 
-  // At most 2 catalogue requests per second: each call waits 500 ms after the previous one started.
-  let gate = Promise.resolve();
-  const throttled = (fn) => {
-    const run = gate.then(fn);
-    gate = gate.then(() => new Promise((r) => setTimeout(r, 500)));
-    return run;
-  };
+  const getCopies = (catKey) => cache.cached(`copies:${catKey}`, 10 * cache.MINUTE, () => cache.catalogueGate(() => cat.getCopies(catKey, session)));
+  const getCounts = (catKey) => cache.cached(`counts:${catKey}`, 10 * cache.MINUTE, () => cache.catalogueGate(() => cat.getCounts(catKey, session)));
 
-  // shortcut: cache entries are never pruned (a few hundred bytes each), add cleanup if storage use grows.
-  const TTL = 10 * 60 * 1000;
-  async function cached(key, fn) {
-    const hit = (await chrome.storage.local.get(key))[key];
-    if (hit && Date.now() - hit.t < TTL) return hit.v;
-    const v = await throttled(fn);
-    await chrome.storage.local.set({ [key]: { t: Date.now(), v } });
-    return v;
+  function setBadge(badge, colour, text) {
+    badge.className = `bsf-badge bsf-${colour}`;
+    badge.textContent = text;
   }
 
-  // --- toolbar ---------------------------------------------------------------
-  const bar = document.createElement('div');
-  bar.className = 'bsf-bar';
+  // Fills `badge` with availability for one book (one or more catalogue records). Returns true if on shelf at home.
+  async function check(catKeys, badge) {
+    const copies = (await Promise.all(catKeys.map(getCopies))).flat();
+    if (!copies.length) return setBadge(badge, 'grey', 'No physical copies listed'), false;
+
+    const onShelf = [...new Set(copies.filter((c) => c.SD_ITEM_STATUS.startsWith('On Shelf')).map((c) => c.LIBRARY))];
+    if (home && onShelf.includes(home.name)) return setBadge(badge, 'green', `On shelf at ${short(home.name)}`), true;
+
+    const homeCopy = home && copies.find((c) => c.LIBRARY === home.name);
+    const homeNote = !home ? '' : homeCopy ? `${short(home.name)} copy ${friendlyStatus(homeCopy.SD_ITEM_STATUS)}` : `not at ${short(home.name)}`;
+    if (second && onShelf.includes(second.name)) setBadge(badge, 'amber', sentence([homeNote, `on shelf at ${short(second.name)}`]));
+    else if (onShelf.length) setBadge(badge, 'amber', sentence([homeNote, `on shelf at ${listBranches(onShelf)}`]));
+    else {
+      const n = await getCounts(catKeys[0]);
+      const holds = Number.isNaN(n.holds) ? '' : plural(n.holds, 'hold');
+      setBadge(badge, 'red', sentence([homeNote, `none on shelf (${plural(copies.length, 'copy', 'copies')})`, holds]));
+    }
+    return false;
+  }
+
+  // Like / not-for-me toggle buttons for one book.
+  function tasteButtons(book) {
+    const key = taste.bookKey(book.title, book.author);
+    const wrap = el('span', 'bsf-taste');
+    const buttons = [['liked', '♥ Like'], ['disliked', 'Not for me']].map(([signal, label]) => {
+      const b = el('button', `bsf-taste-btn bsf-${signal}`, label);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(tasteByKey.get(key) === signal));
+      b.addEventListener('click', async () => {
+        const next = tasteByKey.get(key) === signal ? null : signal;
+        await taste.setSignal(book, next);
+        next ? tasteByKey.set(key, next) : tasteByKey.delete(key);
+        buttons.forEach((x, i) => x.setAttribute('aria-pressed', String(tasteByKey.get(key) === ['liked', 'disliked'][i])));
+      });
+      wrap.append(b);
+      return b;
+    });
+    return wrap;
+  }
+
+  const bookFrom = (root, titleSel) => ({
+    title: root.querySelector(titleSel)?.textContent.trim() ?? '',
+    author: root.querySelector('.displayElementText.AUTHOR')?.textContent.trim() ?? '',
+    isbn: root.querySelector('.isbnValue')?.value || root.querySelector('[id$="_ISBN"]')?.textContent.trim() || null,
+  });
+
+  // --- "For you" panel ---------------------------------------------------------
+  function forYouPanel(open) {
+    const panel = el('details', 'bsf-recs');
+    panel.open = open;
+    panel.innerHTML = `<summary>For you${home ? ` at ${short(home.name)}` : ''}</summary>
+      <p class="bsf-recs-status" aria-live="polite"></p><ol class="bsf-recs-list"></ol>`;
+    const status = panel.querySelector('.bsf-recs-status');
+    const list = panel.querySelector('.bsf-recs-list');
+    let started = false;
+
+    const render = (recs) => {
+      list.replaceChildren(...recs.map((r) => {
+        const li = el('li', 'bsf-rec');
+        if (r.doc.cover) li.append(Object.assign(el('img', 'bsf-rec-cover'), { src: `https://covers.openlibrary.org/b/id/${r.doc.cover}-S.jpg`, alt: '', loading: 'lazy' }));
+        const body = el('div', 'bsf-rec-body');
+        const link = Object.assign(el('a', 'bsf-rec-title', r.doc.title), { href: detailUrl(r.catKeys[0]) });
+        const badge = el('div', 'bsf-badge bsf-grey', 'Checking shelves...');
+        body.append(link, el('span', 'bsf-rec-author', ` by ${r.doc.author}`), badge, el('p', 'bsf-rec-reason', r.reason));
+        li.append(body);
+        check(r.catKeys, badge).catch(() => setBadge(badge, 'grey', 'Could not check availability'));
+        return li;
+      }));
+    };
+
+    async function run() {
+      if (started) return;
+      started = true;
+      const likes = [...tasteByKey.values()].filter((s) => s === 'liked').length;
+      if (!likes) {
+        status.innerHTML = `Like books with <strong>♥ Like</strong> on any search result, or
+          <a href="${url('options.html')}" target="_blank">import your Goodreads or StoryGraph export</a>, to get recommendations.`;
+        return;
+      }
+      const deps = {
+        cached: cache.cached,
+        fetchJson: (u) => cache.openLibraryGate(async () => {
+          const res = await fetch(u);
+          if (!res.ok) throw new Error(`Open Library: HTTP ${res.status}`);
+          return res.json();
+        }),
+        searchCatalogue: (q) => cache.catalogueGate(() => cat.search(q)),
+        getCopies,
+      };
+      let shown = 0;
+      try {
+        const recs = await rec.recommend({
+          taste: await taste.loadTaste(), home, second, deps,
+          onProgress: (message, soFar) => {
+            status.textContent = `${message} First run takes about a minute, later visits are quick.`;
+            if (soFar.length !== shown) render(soFar), (shown = soFar.length);
+          },
+        });
+        render(recs);
+        status.textContent = recs.length
+          ? `Based on ${plural(likes, 'book')} you liked. Use Like and Not for me on any book to improve these.`
+          : 'No matches in the catalogue yet. Like a few more books and try again.';
+      } catch (err) {
+        console.warn('[Shelf Check]', err);
+        status.textContent = 'Could not build recommendations right now. Try reloading later.';
+      }
+    }
+    panel.addEventListener('toggle', () => panel.open && run());
+    if (open) run();
+    return panel;
+  }
+
+  // --- home page -----------------------------------------------------------------
+  if (isHome && !resultsWrapper) {
+    document.getElementById('content')?.prepend(forYouPanel(true));
+    return;
+  }
+
+  // --- detail page -----------------------------------------------------------------
+  if (detail && !resultsWrapper) {
+    const row = el('div', 'bsf-row');
+    row.append(tasteButtons(bookFrom(detail, '.displayElementText.TITLE')));
+    detail.prepend(row);
+    return;
+  }
+
+  // --- search results --------------------------------------------------------------
+  const cells = [...document.querySelectorAll('.results_cell')];
+  if (!cells.length) return;
+
+  const bar = el('div', 'bsf-bar');
   bar.innerHTML = `
     <strong class="bsf-title">Shelf Check</strong>
     <label class="bsf-only"><input type="checkbox"> Only on shelf at<span></span></label>
@@ -58,6 +184,7 @@
     <a class="bsf-branch-search" hidden></a>
     <span class="bsf-status" aria-live="polite"></span>`;
   resultsWrapper.before(bar);
+  bar.after(forYouPanel(false)); // closed on results pages; builds only when opened
 
   const onlyBox = bar.querySelector('.bsf-only input');
   const formatSel = bar.querySelector('select');
@@ -92,45 +219,18 @@
     apply();
   });
 
-  // --- results ---------------------------------------------------------------
   const items = cells.map((cell) => {
     const catKey = cell.querySelector('input[id^="da"]')?.value.match(/SD_ILS:(\d+)$/)?.[1] ?? null;
-    const badge = document.createElement('div');
-    badge.className = 'bsf-badge bsf-grey';
-    cell.querySelector('.results_bio')?.prepend(badge);
-    const item = { wrap: cell.closest('.cell_wrapper') ?? cell, catKey, badge, homeOn: false, done: !catKey };
+    const badge = el('div', 'bsf-badge bsf-grey', 'Checking shelves...');
+    const row = el('div', 'bsf-row');
+    row.append(badge, tasteButtons(bookFrom(cell, '.displayDetailLink a')));
+    cell.querySelector('.results_bio')?.prepend(row);
     if (!catKey) {
       const format = cell.querySelector('.displayElementText.FORMAT')?.textContent.trim() || 'Online';
-      setBadge(item, 'grey', `${format}: online, no branch visit needed`);
-    } else {
-      setBadge(item, 'grey', 'Checking shelves...');
+      setBadge(badge, 'grey', `${format}: online, no branch visit needed`);
     }
-    return item;
+    return { wrap: cell.closest('.cell_wrapper') ?? cell, catKey, badge, homeOn: false, done: !catKey };
   });
-
-  function setBadge(item, colour, text) {
-    item.badge.className = `bsf-badge bsf-${colour}`;
-    item.badge.textContent = text;
-  }
-
-  async function check(item) {
-    const copies = await cached(`copies:${item.catKey}`, () => cat.getCopies(item.catKey, session));
-    if (!copies.length) return setBadge(item, 'grey', 'No physical copies listed');
-
-    const onShelf = [...new Set(copies.filter((c) => c.SD_ITEM_STATUS.startsWith('On Shelf')).map((c) => c.LIBRARY))];
-    item.homeOn = Boolean(home && onShelf.includes(home.name));
-    if (item.homeOn) return setBadge(item, 'green', `On shelf at ${short(home.name)}`);
-
-    const homeCopy = home && copies.find((c) => c.LIBRARY === home.name);
-    const homeNote = !home ? '' : homeCopy ? `${short(home.name)} copy ${friendlyStatus(homeCopy.SD_ITEM_STATUS)}` : `not at ${short(home.name)}`;
-
-    if (second && onShelf.includes(second.name)) return setBadge(item, 'amber', sentence([homeNote, `on shelf at ${short(second.name)}`]));
-    if (onShelf.length) return setBadge(item, 'amber', sentence([homeNote, `on shelf at ${listBranches(onShelf)}`]));
-
-    const n = await cached(`counts:${item.catKey}`, () => cat.getCounts(item.catKey, session));
-    const holds = Number.isNaN(n.holds) ? '' : plural(n.holds, 'hold');
-    setBadge(item, 'red', sentence([homeNote, `none on shelf (${plural(copies.length, 'copy', 'copies')})`, holds]));
-  }
 
   function apply() {
     let hidden = 0;
@@ -145,9 +245,11 @@
     }
     if (!home) return;
     const pending = items.filter((i) => !i.done).length;
-    status.textContent = [pending && `Checking ${pending} more...`, hidden && `${hidden} of ${items.length} hidden on this page.`, hidden === items.length && 'Try the next page or the branch search link.']
-      .filter(Boolean)
-      .join(' ');
+    status.textContent = [
+      pending && `Checking ${pending} more...`,
+      hidden && `${hidden} of ${items.length} hidden on this page.`,
+      hidden === items.length && 'Try the next page or the branch search link.',
+    ].filter(Boolean).join(' ');
   }
 
   apply();
@@ -156,10 +258,11 @@
     return;
   }
   for (const item of items.filter((i) => i.catKey)) {
-    check(item)
+    check([item.catKey], item.badge)
+      .then((homeOn) => (item.homeOn = homeOn))
       .catch((err) => {
         console.warn('[Shelf Check]', err);
-        setBadge(item, 'grey', 'Could not check availability');
+        setBadge(item.badge, 'grey', 'Could not check availability');
       })
       .finally(() => {
         item.done = true;
