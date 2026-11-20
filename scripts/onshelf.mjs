@@ -2,10 +2,10 @@
 // Example: node scripts/onshelf.mjs "H.P. Lovecraft" ASH
 // Prints titles from the search that are on the shelf at that branch right now.
 import { readFile } from 'node:fs/promises';
-import { search, getSession, getCopies, onShelfAt } from '../src/catalogue.mjs';
+import { search, getSession, getCopies, onShelfAt } from '../extension/lib/catalogue.mjs';
 
 const [query, code, limit = '50'] = process.argv.slice(2);
-const branches = JSON.parse(await readFile(new URL('../src/data/branches.json', import.meta.url), 'utf8'));
+const branches = JSON.parse(await readFile(new URL('../extension/lib/branches.json', import.meta.url), 'utf8'));
 const branch = branches.find((b) => b.code === code?.toUpperCase());
 
 if (!query || !branch) {

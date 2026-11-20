@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { parseRss, rssUrl, onShelfAt } from '../src/catalogue.mjs';
+import { parseRss, rssUrl, onShelfAt, parseCounts } from '../extension/lib/catalogue.mjs';
 
 const fixture = (f) => readFile(new URL(`./fixtures/${f}`, import.meta.url), 'utf8');
 
@@ -31,4 +31,8 @@ test('onShelfAt counts only on-shelf copies at the given branch', async () => {
   assert.equal(onShelfAt(copies, 'Kenmore Library'), 1);
   assert.equal(onShelfAt(copies, 'Holland Park Library'), 0); // checked out
   assert.equal(onShelfAt(copies, 'Ashgrove Library'), 0); // no copy
+});
+
+test('parseCounts reads available, copy and hold counts', async () => {
+  assert.deepEqual(parseCounts(await fixture('availability-824506.json')), { available: 3, copies: 4, holds: 0 });
 });

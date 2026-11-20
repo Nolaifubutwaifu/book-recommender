@@ -1,7 +1,7 @@
 # Catalogue notes (Phase 0 findings, 19 Nov 2026)
 
 How the Brisbane City Council library catalogue exposes its data, and what the tool uses.
-Code: [src/catalogue.mjs](../src/catalogue.mjs). Proof script: [scripts/onshelf.mjs](../scripts/onshelf.mjs).
+Code: [extension/lib/catalogue.mjs](../extension/lib/catalogue.mjs). Proof script: [scripts/onshelf.mjs](../scripts/onshelf.mjs).
 
 Base URL: `https://library-brisbane.ent.sirsidynix.net.au`
 Software: SirsiDynix Enterprise 5.x on Apache Tapestry 5.3.8, backed by SirsiDynix Symphony.
@@ -14,7 +14,7 @@ Software: SirsiDynix Enterprise 5.x on Apache Tapestry 5.3.8, backed by SirsiDyn
 | Filter by branch | `qf=` parameter on search and RSS | None | Works |
 | Copies per branch + status | `lookuptitleinfo` POST | `sdcsrf` token header | Works |
 | Copy, available and hold counts | `lookupavailability` POST | `sdcsrf` token header | Works |
-| Branch list | Library facet on results page | None | Saved to `src/data/branches.json` |
+| Branch list | Library facet on results page | None | Saved to `extension/lib/branches.json` |
 
 ## 1. Search feed (RSS / Atom)
 
@@ -67,7 +67,7 @@ Response:
 ```
 
 - `LIBRARY` is the branch **name**, not the code. Map via `branches.json`.
-- Statuses seen so far: `On Shelf in library`, `Checked Out`. Others (in transit, on hold shelf, being processed) are likely but not yet seen. Treat only `On Shelf...` as available.
+- Statuses seen so far: `On Shelf in library`, `Checked Out`, `In Transit from one library to another`. Others (on hold shelf, being processed) are likely but not yet seen. Treat only `On Shelf...` as available.
 - One request per title. At 2 requests/second, 12 results (one page) take about 6 s. The overlay should check only the results on screen, not all 500.
 
 ## 4. Counts and holds (`lookupavailability`)
@@ -80,7 +80,7 @@ Headers: same as above
 
 Response is a Tapestry script wrapper; the useful part is inside a string:
 `updateWebServiceFields({"availableCount":"3","copyCount":"4","holdCount":"0","holdable":true, ...})`.
-Use this for "On loan, 2 holds" badges. Needs a regex on the string; not built yet.
+Used for the hold count on red badges. Parsed by `parseCounts()` in `extension/lib/catalogue.mjs`.
 
 ## 5. The `sdcsrf` token
 
@@ -96,12 +96,21 @@ Use this for "On loan, 2 holds" badges. Needs a regex on the string; not built y
 
 ## 7. Branches
 
-35 public branches in `src/data/branches.json` (33 libraries plus Mobile Library `VAN` and Pop-up Library `POP`).
+35 public branches in `extension/lib/branches.json` (33 libraries plus Mobile Library `VAN` and Pop-up Library `POP`).
 Excluded: `LHQ` (Library HQ, not a public branch). Facet lists only show branches with hits, so the list came from a broad search ("the").
 
 ## 8. Open questions for Phase 1
 
 - [ ] Full list of `SD_ITEM_STATUS` values (look at many titles).
-- [ ] How the results page loads availability when a result is expanded (to hook in rather than duplicate calls).
 - [ ] Whether the RSS feed supports sorting (`&rt=` or similar) for "newest first" recommendations.
 - [ ] Catalogue terms of use: check before publishing anything.
+
+## 9. Results page layout (used by the extension)
+
+- 12 results per page. Paging links reload the whole page (no AJAX), so the content script runs again on every page.
+- Each result: `.results_cell` inside `.cell_wrapper`. Hide the wrapper to hide a result.
+- Record ID: hidden `input[id^="da"]` in each cell, value `ent://SD_ILS/0/SD_ILS:<catKey>` (physical) or an OverDrive/Borrowbox ID (online).
+- Format text: `.displayElementText.FORMAT`.
+- Text column: `.results_bio`. Results list container: `#results_wrapper`.
+- The page itself shows "Available / Holds / Copies" totals for physical items but no branch detail, which is the gap the extension fills.
+- No Content-Security-Policy `script-src` on the catalogue (only `frame-ancestors`).

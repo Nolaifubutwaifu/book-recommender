@@ -67,25 +67,28 @@ Goal: prove we can get every piece of data before building UI.
 - [x] Open DevTools on a results page, capture the `lookupavailability` request and response. Document: URL pattern, which IDs it needs, whether it returns per-branch copies and status (On shelf, On loan, In transit, Due date).
 - [x] Confirm the URL parameter for the branch facet, so we can link to "this search, filtered to Ashgrove".
 - [x] Confirm RSS feed limits: max results, response time, whether it accepts `qu=` with author and title fields.
-- [x] Extract the full branch list (code, name) into `src/data/branches.json`.
+- [x] Extract the full branch list (code, name) into `extension/lib/branches.json`.
 - [x] Write findings to `docs/catalogue-notes.md`.
 
 **Done when:** a 30-line script takes a search term and a branch code and prints titles that are on shelf at that branch.
 Result: `node scripts/onshelf.mjs "H.P. Lovecraft" ASH` does this.
 
-### Phase 1: Branch-aware overlay, no AI (1 to 2 weeks)
+### Phase 1: Branch-aware overlay, no AI (done 20 Nov 2026)
 
 The useful core. Works with zero setup beyond picking a branch.
 
-- [ ] Extension skeleton: content script matching `https://library-brisbane.ent.sirsidynix.net.au/client/*`.
-- [ ] Settings popup: pick home branch, optional second branch.
-- [ ] Badge on every search result: `On shelf at Ashgrove`, `On loan, 2 holds`, `Not at your branch, on shelf at Kenmore`, `eBook on Libby`.
-- [ ] Toggle above results: "Only show books on shelf at my branch".
-- [ ] Toggle: hide eBooks/eAudiobooks, or show only them.
-- [ ] Cache availability for 10 minutes per item.
-- [ ] Rate limit: max 2 catalogue requests per second, max 4 in parallel.
+- [x] Extension skeleton: content script matching `https://library-brisbane.ent.sirsidynix.net.au/client/*`.
+- [x] Settings popup: pick home branch, optional second branch.
+- [x] Badge on every search result: `On shelf at Ashgrove`, `On loan, 2 holds`, `Not at your branch, on shelf at Kenmore`, `eBook on Libby`.
+- [x] Toggle above results: "Only show books on shelf at my branch".
+- [x] Toggle: hide eBooks/eAudiobooks, or show only them.
+- [x] Cache availability for 10 minutes per item.
+- [x] Rate limit: max 2 catalogue requests per second (one request starts every 500 ms).
+- [x] Extra: "Search only books held at Ashgrove" link, because the on-shelf filter only sees the 12 results on the current page.
+- [x] End-to-end test against the live catalogue: `npm run e2e`.
 
 **Done when:** searching "Lovecraft" shows, without clicking, which results you can walk in and grab today.
+Result: done. Not yet built: badges on the single-book detail page, Firefox.
 
 ### Phase 2: Taste profile and recommendations (2 weeks)
 
@@ -161,13 +164,13 @@ Priority: **P0** = MVP, **P1** = makes it good, **P2** = nice to have.
 
 | Part | Choice | Why |
 |---|---|---|
-| Extension | TypeScript, [WXT](https://wxt.dev) framework, Manifest V3 | Handles the extension build boilerplate, hot reload, Chrome and Firefox from one codebase. |
+| Extension | Plain JavaScript, Manifest V3, no build step | Phase 1 is small enough to load straight from the folder. Revisit TypeScript or [WXT](https://wxt.dev) if Phase 2 grows or Firefox support is needed. |
 | Overlay UI | Plain DOM + small CSS file in Phase 1, Preact if it grows | The overlay is a few badges and toggles. No need for a big framework. |
 | Storage | `chrome.storage.local` | No accounts, no database, private by default. |
 | Backend | One Vercel function (Node.js) | Only needed for the LLM key and rate limiting. |
 | LLM | Claude Haiku 5.5 via AI SDK | Fast and cheap enough for per-search calls. |
 | Book data | Open Library API (free, no key), Google Books API (free tier, key) | Subjects, authors, descriptions, edition ISBNs. |
-| Tests | Vitest | Parser tests against saved catalogue HTML and RSS samples. |
+| Tests | Node's built-in test runner, Playwright for end-to-end | Parser tests against saved catalogue samples (`npm test`), real extension against the live catalogue (`npm run e2e`). |
 
 Book sources that are **not** available, so do not plan around them:
 - Goodreads API: closed to new developers since December 2020. CSV export still works.

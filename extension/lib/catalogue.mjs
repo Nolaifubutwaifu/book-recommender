@@ -4,7 +4,7 @@
 export const BASE = 'https://library-brisbane.ent.sirsidynix.net.au';
 const UA = 'Mozilla/5.0 (book-recommender prototype)';
 
-// Search feed URL. `branch` is { code, name } from src/data/branches.json; it limits
+// Search feed URL. `branch` is { code, name } from branches.json; it limits
 // results to titles that branch holds a copy of (on shelf or not).
 export function rssUrl(query, branch) {
   let url = `${BASE}/client/rss/hitlist/eLibCat/qu=${encodeURIComponent(query).replace(/%20/g, '+')}`;
@@ -73,5 +73,28 @@ export async function getCopies(catKey, session) {
   return (await res.json()).childRecords ?? [];
 }
 
-export const onShelfAt = (copies, branchName) =>
+// The response wraps the numbers in a script string: updateWebServiceFields({"availableCount":"3",...}).
+export function parseCounts(text) {
+  const num = (k) => Number(text.match(new RegExp(`\\\\"${k}\\\\":\\\\"(\\d+)`))?.[1] ?? NaN);
+  return { available: num('availableCount'), copies: num('copyCount'), holds: num('holdCount') };
+}
+
+// Returns { available, copies, holds } for a physical title.
+export async function getCounts(catKey, session) {
+  const doc = `ent:$002f$002fSD_ILS$002f0$002fSD_ILS:${catKey}`;
+  const d = encodeURIComponent(`ent://SD_ILS/0/SD_ILS:${catKey}~ILS~0`);
+  const url = `${BASE}/client/en_AU/eLibCat/search/results.displaypanel.displaycell_0.detail.detailavailabilityaccordions.boundwithzone:lookupavailability/${doc}/ILS/0/true/LIBRARY$002cCALLNUMBER?&d=${d}&h=8`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'User-Agent': UA, 'X-Requested-With': 'XMLHttpRequest', sdcsrf: session.token, Cookie: session.cookie,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: 't%3Azoneid=detailboundWithDiv0',
+  });
+  if (!res.ok) throw new Error(`Count lookup for ${catKey} failed: HTTP ${res.status}`);
+  return parseCounts(await res.text());
+}
+
+export const onShelfAt =(copies, branchName) =>
   copies.filter((c) => c.LIBRARY === branchName && c.SD_ITEM_STATUS.startsWith('On Shelf')).length;

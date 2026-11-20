@@ -1,0 +1,31 @@
+.bsf-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #c9d3dd;
+  border-radius: 6px;
+  background: #f4f7fa;
+  font: 14px/1.4 system-ui, sans-serif;
+  color: #1d2a36;
+}
+.bsf-bar select { font: inherit; padding: 2px 4px; }
+.bsf-bar label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.bsf-branch-search { color: #0b5cad; text-decoration: underline; }
+.bsf-status { color: #4a5a6a; }
+
+.bsf-badge {
+  display: inline-block;
+  margin: 2px 0 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid;
+  font: 600 13px/1.4 system-ui, sans-serif;
+}
+/* Text colours meet WCAG AA contrast on their backgrounds. */
+.bsf-green { background: #e3f4e8; border-color: #8ccf9f; color: #145c2c; }
+.bsf-amber { background: #fdf2dc; border-color: #e8c27a; color: #6b4500; }
+.bsf-red   { background: #fbe6e6; border-color: #e3a1a1; color: #8a1f1f; }
+.bsf-grey  { background: #eef1f4; border-color: #c9d3dd; color: #3d4a57; }
