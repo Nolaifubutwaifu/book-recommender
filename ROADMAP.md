@@ -117,6 +117,31 @@ Known limits:
 **Done when:** after importing 20+ books, at least 7 of 10 recommendations are books you would actually consider. **Not verified yet: needs a real import from you.**
 On a 5-book horror sample: Shirley Jackson, Frankenstein, Dr Jekyll, Dorian Gray, The Historian, Interview with the Vampire, which reads as plausible.
 
+### Phase 2b: Other Australian library networks (research 20 Nov 2026)
+
+Research: checked which catalogue software each major city's public library runs, and tried Brisbane's data requests against it.
+
+| City / network | Catalogue software | Brisbane's requests work? | Effort |
+|---|---|---|---|
+| Brisbane (BCC) | SirsiDynix Enterprise | Yes | Done |
+| Gold Coast | SirsiDynix Enterprise (`librarycatalogue.goldcoast.qld.gov.au`, profile `default`) | Search feed and branch filter yes; copy lookup blocked from scripts by the site's bot protection, needs a browser test | Settings only |
+| Tasmania, statewide (Libraries Tasmania) | SirsiDynix Enterprise (`librariestas.ent.sirsidynix.net.au`, profile `library`) | Yes. Statuses differ: "Due 4/08/25" = on loan, a shelf location = available | Settings plus own "on shelf" rule |
+| SA, statewide (One Card, 130+ libraries, incl. Adelaide) | SirsiDynix Enterprise (`onecard.network/client/en_AU/<council>`) | Not tested: bot check in front of the site | Settings, needs a manual test |
+| Melbourne, Canberra (Libraries ACT), 90+ AU/NZ libraries | Spydus (Civica) | Different software, same pattern: RSS search feed, per-record holdings table, no token needed | New adapter |
+| Sydney (City of Sydney) | Softlink Aurora Montage | Not checked | New adapter |
+| Darwin | OCLC WorldCat Discovery | Not checked | New adapter |
+| Perth | Not identified | | |
+
+Plan (built on branch `multi-library`, one commit per network, so any step can be dropped):
+- [ ] Per-library settings: web address, profile, branch list, "on shelf" rule, home and second branch per network.
+- [ ] Gold Coast.
+- [ ] Libraries Tasmania.
+- [ ] SA One Card: only if it can be checked without getting past the bot check automatically.
+- [ ] Spydus adapter: City of Melbourne, then Libraries ACT.
+- [ ] Later: Sydney (Montage), Darwin (WorldCat), Perth.
+
+The recommendation pipeline needs no changes: it only receives "search" and "get copies" functions, so each network plugs in its own.
+
 ### Phase 3: Natural-language search with an LLM (1 to 2 weeks)
 
 - [ ] Side panel with one input: "short, creepy, set in the sea, nothing too gory".
