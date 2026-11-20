@@ -1,5 +1,5 @@
 // Recommendations without AI: liked books -> Open Library subjects and authors -> similar popular books
-// -> keep only those the Brisbane catalogue has -> rank by availability at the user's library, then similarity.
+// -> keep only those on a shelf at some Brisbane library right now -> best matches first.
 import { normTitle, surname, bookKey } from './taste.mjs';
 
 const OL = 'https://openlibrary.org/search.json';
@@ -51,7 +51,7 @@ export function buildProfile(seeds) {
 
 // Similarity: weighted shared subjects, damped for books with very long subject lists, plus a bonus for liked authors.
 // shortcut: disliked books are only excluded, not used to push similar books down; add if recommendations feel off.
-export function scoreCandidates(profile, seeds, docs, taste, limit = 40) {
+export function scoreCandidates(profile, seeds, docs, taste, limit = 80) {
   const exclude = new Set([...taste.map((i) => i.key), ...seeds.map((s) => bookKey(s.doc.title, s.doc.author))]);
   const seen = new Set(seeds.map((s) => s.doc.key));
   const maxW = Math.max(1, ...profile.subjects.values());
@@ -98,15 +98,6 @@ export const pickRecords = (doc, records) =>
     .filter((r) => !NOT_A_BOOK.test(`${r.format} ${r.title}`))
     .slice(0, 3);
 
-// 0 on shelf at home, 1 on shelf at second library, 2 home has a copy (on loan), 3 on shelf elsewhere, 4 none on shelf.
-export function tierOf(copies, home, second) {
-  const onShelfAt = (b) => b && copies.some((c) => c.LIBRARY === b.name && c.SD_ITEM_STATUS.startsWith('On Shelf'));
-  if (onShelfAt(home)) return 0;
-  if (onShelfAt(second)) return 1;
-  if (home && copies.some((c) => c.LIBRARY === home.name)) return 2;
-  if (copies.some((c) => c.SD_ITEM_STATUS.startsWith('On Shelf'))) return 3;
-  return 4;
-}
 
 const quietly = async (fn, fallback) => {
   try {
@@ -119,7 +110,8 @@ const quietly = async (fn, fallback) => {
 
 // deps: { fetchJson(url), searchCatalogue(query), getCopies(catKey), cached(key, ttl, fn) }, rate limits applied by the caller.
 // onProgress(message, recommendationsSoFar) is called as work happens, so the panel can fill in gradually.
-export async function recommend({ taste, home, second, deps, onProgress = () => {}, want = 10 }) {
+// Only books with a copy on shelf somewhere (green or amber badge) are returned; a book nobody can borrow today is no use.
+export async function recommend({ taste, deps, onProgress = () => {}, want = 10 }) {
   const likes = taste.filter((i) => i.signal === 'liked').sort((a, b) => b.addedAt.localeCompare(a.addedAt)).slice(0, 30);
   const seeds = [];
   for (const [n, item] of likes.entries()) {
@@ -141,16 +133,16 @@ export async function recommend({ taste, home, second, deps, onProgress = () => 
   }
 
   const candidates = scoreCandidates(profile, seeds, docs, taste);
-  const found = [];
-  const ranked = () => [...found].sort((a, b) => a.tier - b.tier || b.score - a.score).slice(0, want);
+  const found = []; // candidates come in best-match order, so `found` stays ranked
   for (const [n, c] of candidates.entries()) {
-    onProgress(`Checking the catalogue (${n + 1} of ${candidates.length})...`, ranked());
+    onProgress(`Checking the catalogue (${n + 1} of ${candidates.length})...`, [...found]);
     const catKeys = await quietly(() => deps.cached(`cat:match:${c.doc.key}`, 7 * DAY, async () =>
       pickRecords(c.doc, await deps.searchCatalogue(`${shortTitle(c.doc.title)} ${surname(c.doc.author)}`)).map((r) => r.catKey)), []);
     if (!catKeys.length) continue;
     const copies = (await quietly(() => Promise.all(catKeys.map(deps.getCopies)), [])).flat();
-    found.push({ ...c, catKeys, tier: tierOf(copies, home, second) });
-    if (found.filter((f) => f.tier === 0).length >= want || found.length >= 2 * want) break;
+    if (!copies.some((c) => c.SD_ITEM_STATUS.startsWith('On Shelf'))) continue;
+    found.push({ ...c, catKeys });
+    if (found.length >= want) break;
   }
-  return ranked();
+  return found;
 }

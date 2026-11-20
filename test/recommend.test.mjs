@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanSubjects, buildProfile, scoreCandidates, pickRecords, tierOf, recommend, subjectUrl } from '../extension/lib/recommend.mjs';
+import { cleanSubjects, buildProfile, scoreCandidates, pickRecords, recommend, subjectUrl } from '../extension/lib/recommend.mjs';
 
 const doc = (key, title, author, authorKey, subjects) => ({ key, title, author, authorKey, subjects, cover: null });
 const hillHouse = doc('/works/1', 'The Haunting of Hill House', 'Shirley Jackson', 'A1', ['haunted houses', 'horror tales', 'psychological fiction']);
@@ -54,31 +54,28 @@ test('pickRecords keeps physical editions of the same book only', () => {
   assert.deepEqual(pickRecords({ title: 'The Shining', author: 'Stephen King' }, records).map((r) => r.catKey), ['1', '3']);
 });
 
-test('tierOf ranks home shelf, second shelf, home on loan, elsewhere, none', () => {
-  const home = { name: 'Ashgrove Library' }, second = { name: 'Kenmore Library' };
-  const c = (LIBRARY, SD_ITEM_STATUS) => ({ LIBRARY, SD_ITEM_STATUS });
-  assert.equal(tierOf([c('Ashgrove Library', 'On Shelf in library')], home, second), 0);
-  assert.equal(tierOf([c('Kenmore Library', 'On Shelf in library')], home, second), 1);
-  assert.equal(tierOf([c('Ashgrove Library', 'Checked Out'), c('Inala Library', 'On Shelf in library')], home, second), 2);
-  assert.equal(tierOf([c('Inala Library', 'On Shelf in library')], home, second), 3);
-  assert.equal(tierOf([c('Inala Library', 'Checked Out')], home, second), 4);
-});
-
 test('recommend runs the whole pipeline with fake services', async () => {
   const ol = {
     seed: { docs: [{ key: '/works/1', title: 'The Haunting of Hill House', author_name: ['Shirley Jackson'], author_key: ['A1'], subject: ['Haunted houses', 'Horror tales'] }] },
     shining: { key: '/works/3', title: 'The Shining', author_name: ['Stephen King'], author_key: ['K'], subject: ['Haunted houses', 'Horror tales'] },
     misery: { key: '/works/9', title: 'Misery', author_name: ['Stephen King'], author_key: ['K'], subject: ['Horror tales'] },
+    rebecca: { key: '/works/5', title: 'Rebecca', author_name: ['Daphne du Maurier'], author_key: ['D'], subject: ['Haunted houses', 'Horror tales'] },
   };
+  const records = {
+    Misery: { catKey: '9', title: 'Misery', author: 'King, Stephen', format: 'Books' },
+    'The Shining': { catKey: '3', title: 'The shining', author: 'King, Stephen', format: 'Books' },
+    Rebecca: { catKey: '5', title: 'Rebecca', author: 'Du Maurier, Daphne', format: 'Books' },
+  };
+  const status = { 9: 'On Shelf in library', 3: 'On Shelf in library', 5: 'Checked Out' };
   const deps = {
     cached: (key, ttl, fn) => fn(),
-    fetchJson: async (url) => (url.includes('title=') ? ol.seed : { docs: [ol.misery, ol.shining] }),
-    searchCatalogue: async (q) => (q.startsWith('Misery') ? [{ catKey: '9', title: 'Misery', author: 'King, Stephen', format: 'Books' }] : q.startsWith('The Shining') ? [{ catKey: '3', title: 'The shining', author: 'King, Stephen', format: 'Books' }] : []),
-    getCopies: async (k) => [{ LIBRARY: k === '9' ? 'Ashgrove Library' : 'Inala Library', SD_ITEM_STATUS: 'On Shelf in library' }],
+    fetchJson: async (url) => (url.includes('title=') ? ol.seed : { docs: [ol.misery, ol.rebecca, ol.shining] }),
+    searchCatalogue: async (q) => Object.entries(records).filter(([t]) => q.startsWith(t)).map(([, r]) => r),
+    getCopies: async (k) => [{ LIBRARY: 'Inala Library', SD_ITEM_STATUS: status[k] }],
   };
   const taste = [{ key: 'haunting of hill house|jackson', title: 'The Haunting of Hill House', author: 'Shirley Jackson', signal: 'liked', addedAt: '2024-01-01' }];
-  const recs = await recommend({ taste, home: { name: 'Ashgrove Library' }, deps });
-  // The Shining is more similar, but Misery is on the shelf at the home library, so it comes first.
-  assert.deepEqual(recs.map((r) => [r.doc.title, r.tier, r.catKeys]), [['Misery', 0, ['9']], ['The Shining', 3, ['3']]]);
+  const recs = await recommend({ taste, deps });
+  // Best match first; Rebecca matches well but every copy is checked out, so it is left out.
+  assert.deepEqual(recs.map((r) => [r.doc.title, r.catKeys]), [['The Shining', ['3']], ['Misery', ['9']]]);
   assert.match(subjectUrl('horror tales'), /q=subject%3A%22horror\+tales%22\+language%3Aeng/);
 });

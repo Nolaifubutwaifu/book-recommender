@@ -134,7 +134,7 @@
       let shown = 0;
       try {
         const recs = await rec.recommend({
-          taste: await taste.loadTaste(), home, second, deps,
+          taste: await taste.loadTaste(), deps,
           onProgress: (message, soFar) => {
             status.textContent = `${message} First run takes about a minute, later visits are quick.`;
             if (soFar.length !== shown) render(soFar), (shown = soFar.length);
@@ -142,8 +142,8 @@
         });
         render(recs);
         status.textContent = recs.length
-          ? `Based on ${plural(likes, 'book')} you liked. Use Like and Not for me on any book to improve these.`
-          : 'No matches in the catalogue yet. Like a few more books and try again.';
+          ? `Your best matches that are on a shelf right now, based on ${plural(likes, 'book')} you liked. Use Like and Not for me on any book to improve these.`
+          : 'None of your best matches are on a shelf right now. Like a few more books or try again later.';
       } catch (err) {
         console.warn('[Shelf Check]', err);
         status.textContent = 'Could not build recommendations right now. Try reloading later.';

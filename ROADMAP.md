@@ -99,10 +99,10 @@ Result: done. Not yet built: badges on the single-book detail page, Firefox.
   1. For each liked book (latest 30), look up subjects and author on Open Library.
   2. Profile: subjects weighted by how many liked books share them, plus liked authors.
   3. Candidates: popular English books for the top 6 subjects (exact `subject:"..."` search) and top 3 authors.
-  4. Score: weighted shared subjects (damped for books with very long subject lists) plus a liked-author bonus. Max 2 books per author.
+  4. Score (top 80 candidates): weighted shared subjects (damped for books with very long subject lists) plus a liked-author bonus. Max 2 books per author.
   5. Remove books already liked, disliked or read.
   6. Match each candidate in the catalogue (title + author, physical editions only, no DVDs or audio CDs).
-  7. Rank: on shelf at home, on shelf at second library, home copy on loan, on shelf elsewhere, none on shelf. Then by similarity.
+  7. Keep only books with a copy on shelf somewhere right now (green or amber badge), in best-match order. Books with every copy out are dropped (changed 20 Nov 2026 after first real use: red recommendations were not useful).
 - [x] One-line reason per book: "Because you liked Dracula: horror, horror tales" or "More by Shirley Jackson, who wrote The Haunting of Hill House".
 - [x] Caches: Open Library lookups 7 to 30 days, catalogue matches 7 days, availability 10 minutes.
 - [x] Tests: unit tests for import, matching and scoring; end-to-end test covers import, like button, panel, detail and home pages.

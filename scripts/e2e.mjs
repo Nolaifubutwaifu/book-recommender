@@ -63,11 +63,12 @@ try {
 
   await page.click('.bsf-recs summary');
   const t0 = Date.now();
-  await page.waitForFunction(() => /^Based on/.test(document.querySelector('.bsf-recs-status')?.textContent ?? ''), null, { timeout: 240000 });
+  await page.waitForFunction(() => /^(Your best matches|None of)/.test(document.querySelector('.bsf-recs-status')?.textContent ?? ''), null, { timeout: 240000 });
   await page.waitForFunction(() => ![...document.querySelectorAll('.bsf-rec .bsf-badge')].some((b) => b.textContent.startsWith('Checking')), null, { timeout: 60000 });
-  const recs = await page.$$eval('.bsf-rec', (els) => els.map((e) => `${e.querySelector('.bsf-rec-title').textContent} | ${e.querySelector('.bsf-badge').textContent} | ${e.querySelector('.bsf-rec-reason').textContent}`));
+  const recs = await page.$$eval('.bsf-rec', (els) => els.map((e) => `${e.querySelector('.bsf-badge').className.split(' ')[1].slice(4).padEnd(5)} ${e.querySelector('.bsf-rec-title').textContent} | ${e.querySelector('.bsf-badge').textContent} | ${e.querySelector('.bsf-rec-reason').textContent}`));
   recs.forEach((r) => console.log(`      ${r}`));
   check(recs.length >= 5, `"For you" panel shows ${recs.length} recommendations (${Math.round((Date.now() - t0) / 1000)} s)`);
+  check(recs.every((r) => /^(green|amber)/.test(r)), 'every recommendation is on a shelf somewhere (green or amber)');
   await page.screenshot({ path: join(tmpdir(), 'shelf-check-recs.png'), fullPage: false });
 
   await page.check('.bsf-only input');
