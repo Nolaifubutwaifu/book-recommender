@@ -67,7 +67,7 @@ Goal: prove we can get every piece of data before building UI.
 - [x] Open DevTools on a results page, capture the `lookupavailability` request and response. Document: URL pattern, which IDs it needs, whether it returns per-branch copies and status (On shelf, On loan, In transit, Due date).
 - [x] Confirm the URL parameter for the branch facet, so we can link to "this search, filtered to Ashgrove".
 - [x] Confirm RSS feed limits: max results, response time, whether it accepts `qu=` with author and title fields.
-- [x] Extract the full branch list (code, name) into `extension/lib/branches.json`.
+- [x] Extract the full branch list (code, name) into `extension/lib/libraries.mjs`.
 - [x] Write findings to `docs/catalogue-notes.md`.
 
 **Done when:** a 30-line script takes a search term and a branch code and prints titles that are on shelf at that branch.
@@ -133,7 +133,7 @@ Research: checked which catalogue software each major city's public library runs
 | Perth | Not identified | | |
 
 Plan (built on branch `multi-library`, one commit per network, so any step can be dropped):
-- [ ] Per-library settings: web address, profile, branch list, "on shelf" rule, home and second branch per network.
+- [x] Per-library settings: web address, profile, branch list, "on shelf" rule, home and second branch per network (`extension/lib/libraries.mjs`).
 - [ ] Gold Coast.
 - [ ] Libraries Tasmania.
 - [ ] SA One Card: only if it can be checked without getting past the bot check automatically.

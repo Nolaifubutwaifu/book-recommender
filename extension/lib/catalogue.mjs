@@ -1,13 +1,16 @@
-// Client for the Brisbane City Council library catalogue (SirsiDynix Enterprise).
-// Endpoint details and how they were found: docs/catalogue-notes.md
+// Client for SirsiDynix Enterprise catalogues (Brisbane, Gold Coast, Tasmania, ...).
+// Every function takes `lib`, a network from libraries.mjs. Endpoint details: docs/catalogue-notes.md
 
-export const BASE = 'https://library-brisbane.ent.sirsidynix.net.au';
 const UA = 'Mozilla/5.0 (book-recommender prototype)';
+const page = (lib) => `${lib.base}/client/en_AU/${lib.profile}`;
+const docPath = (catKey) => `ent:$002f$002fSD_ILS$002f0$002fSD_ILS:${catKey}`;
 
-// Search feed URL. `branch` is { code, name } from branches.json; it limits
+export const detailUrl = (lib, catKey) => `${page(lib)}/search/detailnonmodal/${docPath(catKey)}/one`;
+
+// Search feed URL. `branch` is { code, name } from the network's branch list; it limits
 // results to titles that branch holds a copy of (on shelf or not).
-export function rssUrl(query, branch) {
-  let url = `${BASE}/client/rss/hitlist/eLibCat/qu=${encodeURIComponent(query).replace(/%20/g, '+')}`;
+export function rssUrl(lib, query, branch) {
+  let url = `${lib.base}/client/rss/hitlist/${lib.profile}/qu=${encodeURIComponent(query).replace(/%20/g, '+')}`;
   if (branch) url += `&qf=${encodeURIComponent(`LIBRARY\tLibrary\t1:${branch.code}\t${branch.name}`)}`;
   return url;
 }
@@ -45,33 +48,38 @@ export function parseRss(xml) {
   });
 }
 
-export async function search(query, branch) {
-  const res = await fetch(rssUrl(query, branch), { headers: { 'User-Agent': UA } });
+export async function search(lib, query, branch) {
+  const res = await fetch(rssUrl(lib, query, branch), { headers: { 'User-Agent': UA } });
   if (!res.ok) throw new Error(`RSS search failed: HTTP ${res.status}`);
   return parseRss(await res.text());
 }
 
-// Copy lookups are POSTs that need the page's anti-forgery token (sdcsrf).
-export async function getSession() {
-  const res = await fetch(`${BASE}/client/en_AU/eLibCat/search/results?qu=a`, { headers: { 'User-Agent': UA } });
-  const token = (await res.text()).match(/__sdcsrf = "([^"]+)"/)?.[1];
-  if (!token) throw new Error('Could not find sdcsrf token on the catalogue page');
+// Copy lookups are POSTs that need the page's anti-forgery token (sdcsrf). In the extension the
+// content script reads it from the page; from Node this fetches a page to get one.
+export async function getSession(lib) {
+  const res = await fetch(`${page(lib)}/search/results?qu=a`, { headers: { 'User-Agent': UA } });
+  const token = (await res.text()).match(/__sdcsrf = "([^"]+)"/)?.[1] ?? '';
   const cookie = res.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
   return { token, cookie };
 }
 
-// Returns [{ LIBRARY, barcode, SD_ITEM_STATUS }], one per physical copy.
-export async function getCopies(catKey, session) {
-  const doc = `ent:$002f$002fSD_ILS$002f0$002fSD_ILS:${catKey}`;
-  const d = encodeURIComponent(`ent://SD_ILS/0/SD_ILS:${catKey}~~0`);
-  const url = `${BASE}/client/en_AU/eLibCat/search/detailnonmodal.detail.detailavailabilityaccordions:lookuptitleinfo/${doc}/ILS/0/true/true?d=${d}`;
-  const res = await fetch(url, {
+const post = (url, session, extra = {}) =>
+  fetch(url, {
     method: 'POST',
-    headers: { 'User-Agent': UA, 'X-Requested-With': 'XMLHttpRequest', sdcsrf: session.token, Cookie: session.cookie },
+    headers: { 'User-Agent': UA, 'X-Requested-With': 'XMLHttpRequest', sdcsrf: session.token, Cookie: session.cookie, ...extra.headers },
+    body: extra.body,
   });
+
+// One entry per physical copy: { library, status, onShelf }. `onShelf` uses the network's own rule,
+// because networks word statuses differently ("On Shelf in library" vs a shelf location).
+export async function getCopies(lib, catKey, session) {
+  const d = encodeURIComponent(`ent://SD_ILS/0/SD_ILS:${catKey}~~0`);
+  const res = await post(`${page(lib)}/search/detailnonmodal.detail.detailavailabilityaccordions:lookuptitleinfo/${docPath(catKey)}/ILS/0/true/true?d=${d}`, session);
   if (!res.ok) throw new Error(`Copy lookup for ${catKey} failed: HTTP ${res.status}`);
-  return (await res.json()).childRecords ?? [];
+  return toCopies(lib, (await res.json()).childRecords ?? []);
 }
+
+export const toCopies = (lib, records) => records.map((c) => ({ library: c.LIBRARY, status: c.SD_ITEM_STATUS, onShelf: lib.onShelf(c.SD_ITEM_STATUS) }));
 
 // The response wraps the numbers in a script string: updateWebServiceFields({"availableCount":"3",...}).
 export function parseCounts(text) {
@@ -80,26 +88,15 @@ export function parseCounts(text) {
 }
 
 // Returns { available, copies, holds } for a physical title.
-export async function getCounts(catKey, session) {
-  const doc = `ent:$002f$002fSD_ILS$002f0$002fSD_ILS:${catKey}`;
+export async function getCounts(lib, catKey, session) {
   const d = encodeURIComponent(`ent://SD_ILS/0/SD_ILS:${catKey}~ILS~0`);
-  const url = `${BASE}/client/en_AU/eLibCat/search/results.displaypanel.displaycell_0.detail.detailavailabilityaccordions.boundwithzone:lookupavailability/${doc}/ILS/0/true/LIBRARY$002cCALLNUMBER?&d=${d}&h=8`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'User-Agent': UA, 'X-Requested-With': 'XMLHttpRequest', sdcsrf: session.token, Cookie: session.cookie,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: 't%3Azoneid=detailboundWithDiv0',
-  });
+  const url = `${page(lib)}/search/results.displaypanel.displaycell_0.detail.detailavailabilityaccordions.boundwithzone:lookupavailability/${docPath(catKey)}/ILS/0/true/LIBRARY$002cCALLNUMBER?&d=${d}&h=8`;
+  const res = await post(url, session, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 't%3Azoneid=detailboundWithDiv0' });
   if (!res.ok) throw new Error(`Count lookup for ${catKey} failed: HTTP ${res.status}`);
   return parseCounts(await res.text());
 }
 
-// The one place that decides "available": statuses seen are "On Shelf in library", "Checked Out", "In Transit...".
-export const isOnShelf = (copy) => copy.SD_ITEM_STATUS.startsWith('On Shelf');
-
-export const onShelfAt = (copies, branchName) => copies.filter((c) => c.LIBRARY === branchName && isOnShelf(c)).length;
+export const onShelfAt = (copies, branchName) => copies.filter((c) => c.library === branchName && c.onShelf).length;
 
 // --- badge text ---
 export const shortBranch = (name) => name.replace(/ Library.*$/, ''); // "Garden City Library (Westfield)" -> "Garden City"
@@ -112,15 +109,15 @@ const friendlyStatus = (s) =>
   /checked out/i.test(s) ? 'on loan' : /transit/i.test(s) ? 'in transit' : /hold/i.test(s) ? 'on the holds shelf' : s.toLowerCase();
 const listBranches = (names) => names.slice(0, 3).map(shortBranch).join(', ') + (names.length > 3 ? ` +${names.length - 3} more` : '');
 
-// Badge for one book. home / second: { name } or undefined. holds: hold count, only needed when nothing is on shelf.
-// Returns { colour: 'green'|'amber'|'red'|'grey', text, homeOn }.
+// Badge for one book. copies: from getCopies. home / second: { name } or undefined.
+// holds: hold count, only needed when nothing is on shelf. Returns { colour: 'green'|'amber'|'red'|'grey', text, homeOn }.
 export function describeCopies(copies, home, second, holds) {
   if (!copies.length) return { colour: 'grey', text: 'No physical copies listed', homeOn: false };
-  const onShelf = [...new Set(copies.filter(isOnShelf).map((c) => c.LIBRARY))];
+  const onShelf = [...new Set(copies.filter((c) => c.onShelf).map((c) => c.library))];
   if (home && onShelf.includes(home.name)) return { colour: 'green', text: `On shelf at ${shortBranch(home.name)}`, homeOn: true };
 
-  const homeCopy = home && copies.find((c) => c.LIBRARY === home.name);
-  const homeNote = !home ? '' : homeCopy ? `${shortBranch(home.name)} copy ${friendlyStatus(homeCopy.SD_ITEM_STATUS)}` : `not at ${shortBranch(home.name)}`;
+  const homeCopy = home && copies.find((c) => c.library === home.name);
+  const homeNote = !home ? '' : homeCopy ? `${shortBranch(home.name)} copy ${friendlyStatus(homeCopy.status)}` : `not at ${shortBranch(home.name)}`;
   if (second && onShelf.includes(second.name)) return { colour: 'amber', text: sentence([homeNote, `on shelf at ${shortBranch(second.name)}`]), homeOn: false };
   if (onShelf.length) return { colour: 'amber', text: sentence([homeNote, `on shelf at ${listBranches(onShelf)}`]), homeOn: false };
   const holdsNote = holds === undefined || Number.isNaN(holds) ? '' : plural(holds, 'hold');

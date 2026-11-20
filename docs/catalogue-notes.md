@@ -14,7 +14,7 @@ Software: SirsiDynix Enterprise 5.x on Apache Tapestry 5.3.8, backed by SirsiDyn
 | Filter by branch | `qf=` parameter on search and RSS | None | Works |
 | Copies per branch + status | `lookuptitleinfo` POST | `sdcsrf` token header | Works |
 | Copy, available and hold counts | `lookupavailability` POST | `sdcsrf` token header | Works |
-| Branch list | Library facet on results page | None | Saved to `extension/lib/branches.json` |
+| Branch list | Library facet on results page | None | Saved to `extension/lib/libraries.mjs` |
 
 ## 1. Search feed (RSS / Atom)
 
@@ -66,7 +66,7 @@ Response:
 ], "fields":["LIBRARY","SD_ITEM_STATUS"]}
 ```
 
-- `LIBRARY` is the branch **name**, not the code. Map via `branches.json`.
+- `LIBRARY` is the branch **name**, not the code. Map via the branch list in `libraries.mjs`.
 - Statuses seen so far: `On Shelf in library`, `Checked Out`, `In Transit from one library to another`. Others (on hold shelf, being processed) are likely but not yet seen. Treat only `On Shelf...` as available.
 - One request per title. At 2 requests/second, 12 results (one page) take about 6 s. The overlay should check only the results on screen, not all 500.
 
@@ -96,7 +96,7 @@ Used for the hold count on red badges. Parsed by `parseCounts()` in `extension/l
 
 ## 7. Branches
 
-35 public branches in `extension/lib/branches.json` (33 libraries plus Mobile Library `VAN` and Pop-up Library `POP`).
+35 public branches in `extension/lib/libraries.mjs` (33 libraries plus Mobile Library `VAN` and Pop-up Library `POP`).
 Excluded: `LHQ` (Library HQ, not a public branch). Facet lists only show branches with hits, so the list came from a broad search ("the").
 
 ## 8. Open questions for Phase 1

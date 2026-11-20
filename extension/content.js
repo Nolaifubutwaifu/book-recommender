@@ -4,19 +4,19 @@
 // - home page: the "For you" panel
 // Runs on the catalogue origin, so catalogue requests are same-origin and use the page's own token.
 (async () => {
+  const url = (path) => chrome.runtime.getURL(path);
+  const [cat, taste, rec, cache, libs] = await Promise.all(
+    ['catalogue', 'taste', 'recommend', 'cache', 'libraries'].map((m) => import(url(`lib/${m}.mjs`))),
+  );
+  const lib = libs.libraryForUrl(location.href);
+  if (!lib) return;
   const resultsWrapper = document.getElementById('results_wrapper');
   const detail = document.getElementById('detail_biblio0');
-  const isHome = /\/client\/[^/]+\/eLibCat\/?$/.test(location.pathname);
+  const isHome = new RegExp(`/client/[^/]+/${lib.profile}/?$`).test(location.pathname);
   if (!resultsWrapper && !detail && !isHome) return;
 
-  const url = (path) => chrome.runtime.getURL(path);
-  const [cat, taste, rec, cache] = await Promise.all(
-    ['catalogue', 'taste', 'recommend', 'cache'].map((m) => import(url(`lib/${m}.mjs`))),
-  );
-  const branches = await (await fetch(url('lib/branches.json'))).json();
-  const settings = await chrome.storage.sync.get({ homeBranch: '', secondBranch: '', onlyOnShelf: false, format: 'all' });
-  const home = branches.find((b) => b.code === settings.homeBranch);
-  const second = branches.find((b) => b.code === settings.secondBranch);
+  const settings = await chrome.storage.sync.get({ onlyOnShelf: false, format: 'all' });
+  const { home, second } = await libs.branchSettings(lib);
   const token = [...document.scripts].map((s) => s.textContent).join('\n').match(/__sdcsrf = "([^"]+)"/)?.[1];
   const session = { token, cookie: '' }; // same-origin fetch sends the page's cookies itself
   const tasteByKey = new Map((await taste.loadTaste()).map((i) => [i.key, i.signal]));
@@ -24,10 +24,11 @@
   // --- helpers ---------------------------------------------------------------
   const el = (tag, className, text) => Object.assign(document.createElement(tag), className ? { className } : {}, text ? { textContent: text } : {});
   const { shortBranch: short, plural } = cat;
-  const detailUrl = (catKey) => `${cat.BASE}/client/en_AU/eLibCat/search/detailnonmodal/ent:$002f$002fSD_ILS$002f0$002fSD_ILS:${catKey}/one`;
+  const detailUrl = (catKey) => cat.detailUrl(lib, catKey);
 
-  const getCopies = (catKey) => cache.cached(`copies:${catKey}`, 10 * cache.MINUTE, () => cache.catalogueGate(() => cat.getCopies(catKey, session)));
-  const getCounts = (catKey) => cache.cached(`counts:${catKey}`, 10 * cache.MINUTE, () => cache.catalogueGate(() => cat.getCounts(catKey, session)));
+  // Cache keys carry the network id: catalogue keys are only unique within one network.
+  const getCopies = (catKey) => cache.cached(`${lib.id}:copies:${catKey}`, 10 * cache.MINUTE, () => cache.catalogueGate(() => cat.getCopies(lib, catKey, session)));
+  const getCounts = (catKey) => cache.cached(`${lib.id}:counts:${catKey}`, 10 * cache.MINUTE, () => cache.catalogueGate(() => cat.getCounts(lib, catKey, session)));
 
   function setBadge(badge, colour, text) {
     badge.className = `bsf-badge bsf-${colour}`;
@@ -102,13 +103,13 @@
       }
       started = true;
       const deps = {
-        cached: cache.cached,
+        cached: (key, ttl, fn) => cache.cached(`${lib.id}:${key}`, ttl, fn),
         fetchJson: (u) => cache.openLibraryGate(async () => {
           const res = await fetch(u);
           if (!res.ok) throw new Error(`Open Library: HTTP ${res.status}`);
           return res.json();
         }),
-        searchCatalogue: (q) => cache.catalogueGate(() => cat.search(q)),
+        searchCatalogue: (q) => cache.catalogueGate(() => cat.search(lib, q)),
         getCopies,
       };
       let shown = 0;

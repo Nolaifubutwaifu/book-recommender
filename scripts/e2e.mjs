@@ -29,6 +29,8 @@ const check = (ok, msg) => {
 try {
   const popup = await ctx.newPage();
   await popup.goto(`chrome-extension://${id}/popup.html`);
+  await popup.selectOption('#library', 'bcc');
+  await popup.waitForSelector('#home option[value="ASH"]', { state: 'attached' });
   await popup.selectOption('#home', 'ASH');
   await popup.selectOption('#second', 'KEN');
   await popup.waitForSelector('text=Saved.');
