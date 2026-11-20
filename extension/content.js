@@ -64,9 +64,12 @@
     return wrap;
   }
 
+  // Field names differ between networks (e.g. AUTHOR in Brisbane, INITIAL_AUTHOR_SRCH on the Gold Coast).
+  const AUTHOR = '.displayElementText.AUTHOR, .displayElementText.INITIAL_AUTHOR_SRCH, .displayElementText.AUTHOR_OTHER_TALIS_FULL';
+  const DETAIL_TITLE = '.displayElementText.TITLE, .displayElementText.INITIAL_TITLE_SRCH, .displayElementText.T245_DISPLAY';
   const bookFrom = (root, titleSel) => ({
     title: root.querySelector(titleSel)?.textContent.trim() ?? '',
-    author: root.querySelector('.displayElementText.AUTHOR')?.textContent.trim() ?? '',
+    author: root.querySelector(AUTHOR)?.textContent.trim() ?? '',
   });
 
   // --- "For you" panel ---------------------------------------------------------
@@ -144,7 +147,7 @@
   // --- detail page -----------------------------------------------------------------
   if (detail && !resultsWrapper) {
     const row = el('div', 'bsf-row');
-    row.append(tasteButtons(bookFrom(detail, '.displayElementText.TITLE')));
+    row.append(tasteButtons(bookFrom(detail, DETAIL_TITLE)));
     detail.prepend(row);
     return;
   }
@@ -176,7 +179,7 @@
   if (home) {
     bar.querySelector('.bsf-only span').textContent = short(home.name);
     // The on-shelf filter only sees this page; this link narrows the whole search to the home branch.
-    if (!decodeURIComponent(location.search.replace(/\+/g, ' ')).includes(`1:${home.code}\t`)) {
+    if (lib.branchFilter !== false && !decodeURIComponent(location.search.replace(/\+/g, ' ')).includes(`1:${home.code}\t`)) {
       const link = bar.querySelector('.bsf-branch-search');
       const u = new URL(location.href);
       u.searchParams.append('qf', `LIBRARY\tLibrary\t1:${home.code}\t${home.name}`);
@@ -233,11 +236,7 @@
     ].filter(Boolean).join(' ');
   }
 
-  apply();
-  if (!token) {
-    status.textContent = 'Could not read the catalogue session. Reload the page.';
-    return;
-  }
+  apply(); // some networks (e.g. Tasmania) need no token; if lookups fail, each badge says so
   for (const item of items.filter((i) => i.catKey)) {
     check([item.catKey], item.badge)
       .then((homeOn) => (item.homeOn = homeOn))

@@ -134,8 +134,8 @@ Research: checked which catalogue software each major city's public library runs
 
 Plan (built on branch `multi-library`, one commit per network, so any step can be dropped):
 - [x] Per-library settings: web address, profile, branch list, "on shelf" rule, home and second branch per network (`extension/lib/libraries.mjs`).
-- [ ] Gold Coast.
-- [ ] Libraries Tasmania.
+- [~] Gold Coast: added (13 branches). Not verified: its copy lookups are bot-protected, so only a real browser can check them, and its status wording is assumed to match Brisbane. Needs one manual check.
+- [x] Libraries Tasmania: 45 public branches, own status rule (shelf location = on shelf, "Due <date>", "In Transit", "Hold awaiting pickup" = not), no token needed, no branch filter. Verified end to end.
 - [ ] SA One Card: only if it can be checked without getting past the bot check automatically.
 - [ ] Spydus adapter: City of Melbourne, then Libraries ACT.
 - [ ] Later: Sydney (Montage), Darwin (WorldCat), Perth.

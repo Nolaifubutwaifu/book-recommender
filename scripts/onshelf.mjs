@@ -16,8 +16,9 @@ if (!query || !branch) {
   process.exit(1);
 }
 
-const items = (await search(lib, query, branch)).filter((i) => i.catKey).slice(0, Number(limit));
-console.log(`${items.length} physical titles held at ${branch.name}. Checking shelves...\n`);
+// Networks without a branch filter (Tasmania): search everything, then check copies for the branch.
+const items = (await search(lib, query, lib.branchFilter === false ? undefined : branch)).filter((i) => i.catKey).slice(0, Number(limit));
+console.log(`${items.length} physical titles${lib.branchFilter === false ? '' : ` held at ${branch.name}`}. Checking shelves...\n`);
 
 const session = await getSession(lib);
 let found = 0;

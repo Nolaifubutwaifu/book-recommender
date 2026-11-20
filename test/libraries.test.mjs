@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { LIBRARIES, libraryForUrl } from '../extension/lib/libraries.mjs';
+import { LIBRARIES, libraryForUrl, libraryById } from '../extension/lib/libraries.mjs';
 
 test('every network is complete and covered by manifest.json', async () => {
   const manifest = JSON.parse(await readFile(new URL('../extension/manifest.json', import.meta.url), 'utf8'));
@@ -20,4 +20,10 @@ test('every network is complete and covered by manifest.json', async () => {
 test('libraryForUrl finds the network from a catalogue address', () => {
   assert.equal(libraryForUrl('https://library-brisbane.ent.sirsidynix.net.au/client/en_AU/eLibCat/search/results?qu=x')?.id, 'bcc');
   assert.equal(libraryForUrl('https://example.com/client/'), undefined);
+});
+
+test('Tasmania: a shelf location means on shelf, due dates and holds do not', () => {
+  const { onShelf } = libraryById('tas');
+  for (const s of ['Adult fiction', 'Non-fiction', 'Stack', 'Junior non-fiction (School item)']) assert.equal(onShelf(s), true, s);
+  for (const s of ['Due 4/08/25', 'In Transit', 'Hold awaiting pickup', 'Missing']) assert.equal(onShelf(s), false, s);
 });

@@ -94,6 +94,20 @@ try {
   await page.goto('https://library-brisbane.ent.sirsidynix.net.au/client/en_AU/eLibCat/');
   await page.waitForSelector('.bsf-recs[open] .bsf-rec', { timeout: 30000 });
   check(true, 'home page shows the open "For you" panel (from cache)');
+
+  // --- Libraries Tasmania: no token, its own status wording, no branch filter ---
+  await popup.reload();
+  await popup.selectOption('#library', 'tas');
+  await popup.waitForSelector('#home option[value="HOBART"]', { state: 'attached' });
+  await popup.selectOption('#home', 'HOBART');
+  await popup.waitForSelector('text=Saved.');
+  await page.goto('https://librariestas.ent.sirsidynix.net.au/client/en_AU/library/search/results?qu=lovecraft');
+  badges = await settle();
+  const cells = await page.$$eval('.results_cell', (e) => e.length);
+  check(badges.length > 0 && badges.length === cells, `Tasmania: every result has a badge (${badges.length})`);
+  check(badges.some(([c]) => c === 'green' || c === 'amber'), 'Tasmania: some books show as on shelf');
+  check(!badges.some(([, t]) => t.includes('Could not')), 'Tasmania: no failed lookups');
+  check((await page.$('.bsf-branch-search:not([hidden])')) === null, 'Tasmania: no branch search link');
 } finally {
   await ctx.close();
 }
