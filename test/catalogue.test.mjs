@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { parseRss, rssUrl, onShelfAt, parseCounts } from '../extension/lib/catalogue.mjs';
+import { parseRss, rssUrl, onShelfAt, parseCounts, describeCopies } from '../extension/lib/catalogue.mjs';
 
 const fixture = (f) => readFile(new URL(`./fixtures/${f}`, import.meta.url), 'utf8');
 
@@ -35,4 +35,20 @@ test('onShelfAt counts only on-shelf copies at the given branch', async () => {
 
 test('parseCounts reads available, copy and hold counts', async () => {
   assert.deepEqual(parseCounts(await fixture('availability-824506.json')), { available: 3, copies: 4, holds: 0 });
+});
+
+test('describeCopies picks the badge colour and text', () => {
+  const home = { name: 'Ashgrove Library' }, second = { name: 'Kenmore Library' };
+  const c = (LIBRARY, SD_ITEM_STATUS) => ({ LIBRARY, SD_ITEM_STATUS });
+  const shelf = 'On Shelf in library';
+  const d = (copies, holds) => { const r = describeCopies(copies, home, second, holds); return `${r.colour}: ${r.text}`; };
+  assert.equal(d([c('Ashgrove Library', shelf)]), 'green: On shelf at Ashgrove');
+  assert.equal(describeCopies([c('Ashgrove Library', shelf)], home).homeOn, true);
+  assert.equal(d([c('Inala Library', shelf), c('Kenmore Library', shelf)]), 'amber: Not at Ashgrove, on shelf at Kenmore');
+  assert.equal(d([c('Ashgrove Library', 'Checked Out'), c('Inala Library', shelf)]), 'amber: Ashgrove copy on loan, on shelf at Inala');
+  assert.equal(d(['A', 'B', 'C', 'D'].map((x) => c(`${x} Library`, shelf))), 'amber: Not at Ashgrove, on shelf at A, B, C +1 more');
+  assert.equal(d([c('Ashgrove Library', 'In Transit from one library to another')], 2), 'red: Ashgrove copy in transit, none on shelf (1 copy), 2 holds');
+  assert.equal(d([c('Inala Library', 'Checked Out'), c('Inala Library', 'Checked Out')]), 'red: Not at Ashgrove, none on shelf (2 copies)');
+  assert.equal(d([]), 'grey: No physical copies listed');
+  assert.equal(describeCopies([c('Inala Library', shelf)]).text, 'On shelf at Inala', 'no home branch set');
 });

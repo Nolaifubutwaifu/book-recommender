@@ -96,5 +96,33 @@ export async function getCounts(catKey, session) {
   return parseCounts(await res.text());
 }
 
-export const onShelfAt =(copies, branchName) =>
-  copies.filter((c) => c.LIBRARY === branchName && c.SD_ITEM_STATUS.startsWith('On Shelf')).length;
+// The one place that decides "available": statuses seen are "On Shelf in library", "Checked Out", "In Transit...".
+export const isOnShelf = (copy) => copy.SD_ITEM_STATUS.startsWith('On Shelf');
+
+export const onShelfAt = (copies, branchName) => copies.filter((c) => c.LIBRARY === branchName && isOnShelf(c)).length;
+
+// --- badge text ---
+export const shortBranch = (name) => name.replace(/ Library.*$/, ''); // "Garden City Library (Westfield)" -> "Garden City"
+export const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const sentence = (parts) => {
+  const s = parts.filter(Boolean).join(', ');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+const friendlyStatus = (s) =>
+  /checked out/i.test(s) ? 'on loan' : /transit/i.test(s) ? 'in transit' : /hold/i.test(s) ? 'on the holds shelf' : s.toLowerCase();
+const listBranches = (names) => names.slice(0, 3).map(shortBranch).join(', ') + (names.length > 3 ? ` +${names.length - 3} more` : '');
+
+// Badge for one book. home / second: { name } or undefined. holds: hold count, only needed when nothing is on shelf.
+// Returns { colour: 'green'|'amber'|'red'|'grey', text, homeOn }.
+export function describeCopies(copies, home, second, holds) {
+  if (!copies.length) return { colour: 'grey', text: 'No physical copies listed', homeOn: false };
+  const onShelf = [...new Set(copies.filter(isOnShelf).map((c) => c.LIBRARY))];
+  if (home && onShelf.includes(home.name)) return { colour: 'green', text: `On shelf at ${shortBranch(home.name)}`, homeOn: true };
+
+  const homeCopy = home && copies.find((c) => c.LIBRARY === home.name);
+  const homeNote = !home ? '' : homeCopy ? `${shortBranch(home.name)} copy ${friendlyStatus(homeCopy.SD_ITEM_STATUS)}` : `not at ${shortBranch(home.name)}`;
+  if (second && onShelf.includes(second.name)) return { colour: 'amber', text: sentence([homeNote, `on shelf at ${shortBranch(second.name)}`]), homeOn: false };
+  if (onShelf.length) return { colour: 'amber', text: sentence([homeNote, `on shelf at ${listBranches(onShelf)}`]), homeOn: false };
+  const holdsNote = holds === undefined || Number.isNaN(holds) ? '' : plural(holds, 'hold');
+  return { colour: 'red', text: sentence([homeNote, `none on shelf (${plural(copies.length, 'copy', 'copies')})`, holdsNote]), homeOn: false };
+}

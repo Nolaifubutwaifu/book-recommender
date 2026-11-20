@@ -71,17 +71,19 @@ try {
   check(recs.every((r) => /^(green|amber)/.test(r)), 'every recommendation is on a shelf somewhere (green or amber)');
   await page.screenshot({ path: join(tmpdir(), 'shelf-check-recs.png'), fullPage: false });
 
-  await page.check('.bsf-only input');
-  const visible = await page.$$eval('.cell_wrapper', (w) => w.filter((x) => x.querySelector('.results_cell') && x.style.display !== 'none').length);
-  const greens = badges.filter(([c]) => c === 'green').length;
-  check(visible === greens, `"only on shelf" leaves ${greens} green result(s) visible`);
-  await page.uncheck('.bsf-only input');
-
   await page.click('.bsf-branch-search');
   await page.waitForLoadState('load');
   badges = await settle();
   check(page.url().includes('1%3AASH'), 'branch search link adds the Ashgrove filter');
   check(badges.length > 0 && badges.every(([c]) => c !== 'grey'), 'branch search shows only physical books');
+
+  // Run the filter where some results are green and some are not, so hiding everything (or nothing) would fail.
+  const greens = badges.filter(([c]) => c === 'green').length;
+  await page.check('.bsf-only input');
+  const visible = await page.$$eval('.cell_wrapper', (w) => w.filter((x) => x.querySelector('.results_cell') && x.style.display !== 'none').length);
+  await page.uncheck('.bsf-only input');
+  if (greens === 0 || greens === badges.length) console.log(`SKIP  "only on shelf" check: live data has ${greens} of ${badges.length} green, no mix to test`);
+  else check(visible === greens, `"only on shelf" shows exactly the ${greens} green of ${badges.length} results`);
 
   await page.goto('https://library-brisbane.ent.sirsidynix.net.au/client/en_AU/eLibCat/search/detailnonmodal/ent:$002f$002fSD_ILS$002f0$002fSD_ILS:824506/one');
   await page.waitForSelector('#detail_biblio0 .bsf-liked', { timeout: 20000 });

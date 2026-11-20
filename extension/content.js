@@ -23,15 +23,7 @@
 
   // --- helpers ---------------------------------------------------------------
   const el = (tag, className, text) => Object.assign(document.createElement(tag), className ? { className } : {}, text ? { textContent: text } : {});
-  const short = (name) => name.replace(/ Library.*$/, ''); // "Garden City Library (Westfield)" -> "Garden City"
-  const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-  const sentence = (parts) => {
-    const s = parts.filter(Boolean).join(', ');
-    return s.charAt(0).toUpperCase() + s.slice(1);
-  };
-  const friendlyStatus = (s) =>
-    /checked out/i.test(s) ? 'on loan' : /transit/i.test(s) ? 'in transit' : /hold/i.test(s) ? 'on the holds shelf' : s.toLowerCase();
-  const listBranches = (names) => names.slice(0, 3).map(short).join(', ') + (names.length > 3 ? ` +${names.length - 3} more` : '');
+  const { shortBranch: short, plural } = cat;
   const detailUrl = (catKey) => `${cat.BASE}/client/en_AU/eLibCat/search/detailnonmodal/ent:$002f$002fSD_ILS$002f0$002fSD_ILS:${catKey}/one`;
 
   const getCopies = (catKey) => cache.cached(`copies:${catKey}`, 10 * cache.MINUTE, () => cache.catalogueGate(() => cat.getCopies(catKey, session)));
@@ -45,21 +37,10 @@
   // Fills `badge` with availability for one book (one or more catalogue records). Returns true if on shelf at home.
   async function check(catKeys, badge) {
     const copies = (await Promise.all(catKeys.map(getCopies))).flat();
-    if (!copies.length) return setBadge(badge, 'grey', 'No physical copies listed'), false;
-
-    const onShelf = [...new Set(copies.filter((c) => c.SD_ITEM_STATUS.startsWith('On Shelf')).map((c) => c.LIBRARY))];
-    if (home && onShelf.includes(home.name)) return setBadge(badge, 'green', `On shelf at ${short(home.name)}`), true;
-
-    const homeCopy = home && copies.find((c) => c.LIBRARY === home.name);
-    const homeNote = !home ? '' : homeCopy ? `${short(home.name)} copy ${friendlyStatus(homeCopy.SD_ITEM_STATUS)}` : `not at ${short(home.name)}`;
-    if (second && onShelf.includes(second.name)) setBadge(badge, 'amber', sentence([homeNote, `on shelf at ${short(second.name)}`]));
-    else if (onShelf.length) setBadge(badge, 'amber', sentence([homeNote, `on shelf at ${listBranches(onShelf)}`]));
-    else {
-      const n = await getCounts(catKeys[0]);
-      const holds = Number.isNaN(n.holds) ? '' : plural(n.holds, 'hold');
-      setBadge(badge, 'red', sentence([homeNote, `none on shelf (${plural(copies.length, 'copy', 'copies')})`, holds]));
-    }
-    return false;
+    let d = cat.describeCopies(copies, home, second);
+    if (d.colour === 'red') d = cat.describeCopies(copies, home, second, (await getCounts(catKeys[0])).holds); // hold count only when needed
+    setBadge(badge, d.colour, d.text);
+    return d.homeOn;
   }
 
   // Like / not-for-me toggle buttons for one book.
@@ -85,7 +66,6 @@
   const bookFrom = (root, titleSel) => ({
     title: root.querySelector(titleSel)?.textContent.trim() ?? '',
     author: root.querySelector('.displayElementText.AUTHOR')?.textContent.trim() ?? '',
-    isbn: root.querySelector('.isbnValue')?.value || root.querySelector('[id$="_ISBN"]')?.textContent.trim() || null,
   });
 
   // --- "For you" panel ---------------------------------------------------------
@@ -114,13 +94,13 @@
 
     async function run() {
       if (started) return;
-      started = true;
       const likes = [...tasteByKey.values()].filter((s) => s === 'liked').length;
       if (!likes) {
         status.innerHTML = `Like books with <strong>♥ Like</strong> on any search result, or
           <a href="${url('options.html')}" target="_blank">import your Goodreads or StoryGraph export</a>, to get recommendations.`;
-        return;
+        return; // not started: reopening the panel after liking a book tries again
       }
+      started = true;
       const deps = {
         cached: cache.cached,
         fetchJson: (u) => cache.openLibraryGate(async () => {

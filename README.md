@@ -10,9 +10,9 @@ It shows, on every search result, whether the book is on the shelf at **your** l
 
 Above the results: "Only on shelf at my library" filter, a format filter, and a link that limits the whole search to books your library holds.
 
-**Recommendations:** mark books with **Like** or **Not for me** (on search results and book pages), or import your Goodreads or StoryGraph export from the extension's options page. A "For you" panel (open on the catalogue home page, collapsed above search results) then lists your 10 best matches that are on a shelf at some Brisbane library right now (green or amber), best match first, each with a short reason. Books with every copy out are left out. Book data comes from [Open Library](https://openlibrary.org). Your taste profile stays in your browser.
+**Recommendations:** mark books with **Like** or **Not for me** (on search results and book pages), or import your Goodreads or StoryGraph export from the extension's options page. A "For you" panel (open on the catalogue home page, collapsed above search results) then lists your 10 best matches that are on a shelf at some Brisbane library right now (green or amber), best match first, each with a short reason. Books with every copy out are left out. Book data comes from [Open Library](https://openlibrary.org). Your taste profile is stored only in your browser; the titles and authors of books you liked are sent to Open Library to find similar books.
 
-Not affiliated with Brisbane City Council. Uses only what the public catalogue page itself loads, at most 2 requests per second.
+Not affiliated with Brisbane City Council. Uses the catalogue's public search feed and the same availability lookups its own pages make, at most 2 requests per second per open catalogue tab.
 
 ## Install (developer mode)
 

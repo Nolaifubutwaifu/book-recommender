@@ -42,7 +42,6 @@ test('importTaste maps a Goodreads export', () => {
     ['Twilight (Twilight, #1)', 'disliked'],
     ['Dune', 'read'],
   ]);
-  assert.equal(items[0].isbn, '9780143039983');
   assert.equal(items[0].addedAt, '2024-03-01');
   assert.equal(items[0].key, 'haunting of hill house|jackson');
 });

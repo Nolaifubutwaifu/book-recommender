@@ -1,5 +1,5 @@
 // Taste profile: books the user liked, disliked or read. Stored in chrome.storage.local under "taste".
-// Item: { key, title, author, isbn, signal: 'liked'|'disliked'|'read', source: 'button'|'goodreads'|'storygraph', addedAt }
+// Item: { key, title, author, signal: 'liked'|'disliked'|'read', source: 'button'|'goodreads'|'storygraph', addedAt }
 
 const clean = (s) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -40,19 +40,18 @@ export function parseCsv(text) {
 }
 
 const isoDate = (d) => (d ? d.replace(/\//g, '-') : new Date().toISOString().slice(0, 10));
-const digits = (s = '') => s.replace(/[^0-9X]/gi, '') || null; // Goodreads wraps ISBNs as ="0123456789"
 const byRating = (r) => (r >= 4 ? 'liked' : r >= 1 && r <= 2 ? 'disliked' : 'read');
 
 // Turns a Goodreads or StoryGraph export into taste items. Unread shelves (to-read, currently-reading) are skipped.
 export function importTaste(csvText) {
   const rows = parseCsv(csvText);
   const head = Object.keys(rows[0] ?? {});
-  const make = (title, author, isbn, signal, source, addedAt) => ({ key: bookKey(title, author), title, author, isbn, signal, source, addedAt });
+  const make = (title, author, signal, source, addedAt) => ({ key: bookKey(title, author), title, author, signal, source, addedAt });
 
   if (head.includes('My Rating') && head.includes('Exclusive Shelf')) {
     const items = rows
       .filter((r) => r['Exclusive Shelf'] === 'read' && r.Title)
-      .map((r) => make(r.Title, r.Author, digits(r.ISBN13) ?? digits(r.ISBN), byRating(Number(r['My Rating'])), 'goodreads', isoDate(r['Date Read'] || r['Date Added'])));
+      .map((r) => make(r.Title, r.Author, byRating(Number(r['My Rating'])), 'goodreads', isoDate(r['Date Read'] || r['Date Added'])));
     return { source: 'goodreads', items, skipped: rows.length - items.length };
   }
   if (head.includes('Read Status') && head.includes('Star Rating')) {
@@ -60,8 +59,7 @@ export function importTaste(csvText) {
       .filter((r) => ['read', 'did-not-finish'].includes(r['Read Status']) && r.Title)
       .map((r) => {
         const signal = r['Read Status'] === 'did-not-finish' ? 'disliked' : byRating(parseFloat(r['Star Rating']) || 0);
-        const isbn = digits(r['ISBN/UID']);
-        return make(r.Title, (r.Authors ?? '').split(',')[0].trim(), isbn?.length >= 10 ? isbn : null, signal, 'storygraph', isoDate(r['Last Date Read'] || r['Date Added']));
+        return make(r.Title, (r.Authors ?? '').split(',')[0].trim(), signal, 'storygraph', isoDate(r['Last Date Read'] || r['Date Added']));
       });
     return { source: 'storygraph', items, skipped: rows.length - items.length };
   }
@@ -82,9 +80,9 @@ export const loadTaste = async () =>
 export const saveTaste = (taste) => chrome.storage.local.set({ taste });
 
 // signal: 'liked' | 'disliked' | null (remove)
-export async function setSignal({ title, author, isbn = null }, signal) {
+export async function setSignal({ title, author }, signal) {
   const key = bookKey(title, author);
   const taste = (await loadTaste()).filter((i) => i.key !== key);
-  if (signal) taste.push({ key, title, author, isbn, signal, source: 'button', addedAt: new Date().toISOString().slice(0, 10) });
+  if (signal) taste.push({ key, title, author, signal, source: 'button', addedAt: new Date().toISOString().slice(0, 10) });
   await saveTaste(taste);
 }
