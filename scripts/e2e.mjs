@@ -108,6 +108,28 @@ try {
   check(badges.some(([c]) => c === 'green' || c === 'amber'), 'Tasmania: some books show as on shelf');
   check(!badges.some(([, t]) => t.includes('Could not')), 'Tasmania: no failed lookups');
   check((await page.$('.bsf-branch-search:not([hidden])')) === null, 'Tasmania: no branch search link');
+
+  // --- Spydus networks: different software, different page layout ---
+  for (const [id, home, base] of [['melbourne', 'CITY', 'https://librarysearch.melbourne.vic.gov.au'], ['act', 'BELCONNEN', 'https://librariesact.spydus.com']]) {
+    await popup.reload();
+    await popup.selectOption('#library', id);
+    await popup.waitForSelector(`#home option[value="${home}"]`, { state: 'attached' });
+    await popup.selectOption('#home', home);
+    await popup.waitForSelector('text=Saved.');
+    await page.goto(`${base}/cgi-bin/spydus.exe/ENQ/OPAC/BIBENQ?ENTRY=lovecraft&ENTRY_NAME=BS&ENTRY_TYPE=K`);
+    badges = await settle();
+    const cards = await page.$$eval('#result-content-list .card-list-text', (e) => e.length);
+    check(badges.length > 0 && badges.length === cards, `${id}: every result card has a badge (${badges.length})`);
+    check(badges.some(([c]) => c !== 'grey'), `${id}: physical books get an availability badge`);
+    check(!badges.some(([, t]) => t.includes('Could not')), `${id}: no failed lookups`);
+    await page.check('.bsf-only input');
+    const shown = await page.$$eval('#result-content-list .card-list-text', (e) => e.filter((x) => x.offsetParent !== null).length);
+    await page.uncheck('.bsf-only input');
+    check(shown === badges.filter(([c]) => c === 'green').length, `${id}: "only on shelf" hides exactly the non-green cards (${shown} left)`);
+  }
+  await page.goto('https://librarysearch.melbourne.vic.gov.au/cgi-bin/spydus.exe/ENQ/OPAC/BIBENQ?SETLVL=&IRN=248635');
+  await page.waitForSelector('h1 + .bsf-row .bsf-liked', { timeout: 20000 });
+  check(true, 'melbourne: record page has like buttons');
 } finally {
   await ctx.close();
 }

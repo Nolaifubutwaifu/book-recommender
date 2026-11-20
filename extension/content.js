@@ -3,17 +3,17 @@
 // - book detail pages: like / not-for-me buttons
 // - home page: the "For you" panel
 // Runs on the catalogue origin, so catalogue requests are same-origin and use the page's own token.
+// Page layouts differ per catalogue system: see sirsiPage() and spydusPage() at the bottom.
 (async () => {
   const url = (path) => chrome.runtime.getURL(path);
-  const [cat, taste, rec, cache, libs] = await Promise.all(
-    ['catalogue', 'taste', 'recommend', 'cache', 'libraries'].map((m) => import(url(`lib/${m}.mjs`))),
+  const [cat, spydus, taste, rec, cache, libs] = await Promise.all(
+    ['catalogue', 'spydus', 'taste', 'recommend', 'cache', 'libraries'].map((m) => import(url(`lib/${m}.mjs`))),
   );
   const lib = libs.libraryForUrl(location.href);
   if (!lib) return;
-  const resultsWrapper = document.getElementById('results_wrapper');
-  const detail = document.getElementById('detail_biblio0');
-  const isHome = new RegExp(`/client/[^/]+/${lib.profile}/?$`).test(location.pathname);
-  if (!resultsWrapper && !detail && !isHome) return;
+  const client = lib.system === 'spydus' ? spydus : cat; // network requests; badge text helpers stay in `cat`
+  const page = lib.system === 'spydus' ? spydusPage() : sirsiPage();
+  if (!page.kind) return;
 
   const settings = await chrome.storage.sync.get({ onlyOnShelf: false, format: 'all' });
   const { home, second } = await libs.branchSettings(lib);
@@ -24,11 +24,12 @@
   // --- helpers ---------------------------------------------------------------
   const el = (tag, className, text) => Object.assign(document.createElement(tag), className ? { className } : {}, text ? { textContent: text } : {});
   const { shortBranch: short, plural } = cat;
-  const detailUrl = (catKey) => cat.detailUrl(lib, catKey);
+  const detailUrl = (catKey) => client.detailUrl(lib, catKey);
 
   // Cache keys carry the network id: catalogue keys are only unique within one network.
-  const getCopies = (catKey) => cache.cached(`${lib.id}:copies:${catKey}`, 10 * cache.MINUTE, () => cache.catalogueGate(() => cat.getCopies(lib, catKey, session)));
-  const getCounts = (catKey) => cache.cached(`${lib.id}:counts:${catKey}`, 10 * cache.MINUTE, () => cache.catalogueGate(() => cat.getCounts(lib, catKey, session)));
+  // hint: the result card's availability link (Spydus), saves a request when not cached.
+  const getCopies = (catKey, hint) => cache.cached(`${lib.id}:copies:${catKey}`, 10 * cache.MINUTE, () => cache.catalogueGate(() => client.getCopies(lib, catKey, session, hint)));
+  const getCounts = (catKey) => cache.cached(`${lib.id}:counts:${catKey}`, 10 * cache.MINUTE, () => cache.catalogueGate(() => client.getCounts(lib, catKey, session)));
 
   function setBadge(badge, colour, text) {
     badge.className = `bsf-badge bsf-${colour}`;
@@ -36,8 +37,8 @@
   }
 
   // Fills `badge` with availability for one book (one or more catalogue records). Returns true if on shelf at home.
-  async function check(catKeys, badge) {
-    const copies = (await Promise.all(catKeys.map(getCopies))).flat();
+  async function check(catKeys, badge, hint) {
+    const copies = (await Promise.all(catKeys.map((k) => getCopies(k, hint)))).flat();
     let d = cat.describeCopies(copies, home, second);
     if (d.colour === 'red') d = cat.describeCopies(copies, home, second, (await getCounts(catKeys[0])).holds); // hold count only when needed
     setBadge(badge, d.colour, d.text);
@@ -112,7 +113,7 @@
           if (!res.ok) throw new Error(`Open Library: HTTP ${res.status}`);
           return res.json();
         }),
-        searchCatalogue: (q) => cache.catalogueGate(() => cat.search(lib, q)),
+        searchCatalogue: (q) => cache.catalogueGate(() => client.search(lib, q)),
         getCopies,
       };
       let shown = 0;
@@ -139,22 +140,23 @@
   }
 
   // --- home page -----------------------------------------------------------------
-  if (isHome && !resultsWrapper) {
-    document.getElementById('content')?.prepend(forYouPanel(true));
+  if (page.kind === 'home') {
+    page.homeAnchor?.prepend(forYouPanel(true));
     return;
   }
 
   // --- detail page -----------------------------------------------------------------
-  if (detail && !resultsWrapper) {
+  if (page.kind === 'detail') {
+    const { book, place } = page.detail();
     const row = el('div', 'bsf-row');
-    row.append(tasteButtons(bookFrom(detail, DETAIL_TITLE)));
-    detail.prepend(row);
+    row.append(tasteButtons(book));
+    place(row);
     return;
   }
 
   // --- search results --------------------------------------------------------------
-  const cells = [...document.querySelectorAll('.results_cell')];
-  if (!cells.length) return;
+  const found = page.results();
+  if (!found.length) return;
 
   const bar = el('div', 'bsf-bar');
   bar.innerHTML = `
@@ -167,7 +169,7 @@
     </select>
     <a class="bsf-branch-search" hidden></a>
     <span class="bsf-status" aria-live="polite"></span>`;
-  resultsWrapper.before(bar);
+  page.resultsAnchor.before(bar);
   bar.after(forYouPanel(false)); // closed on results pages; builds only when opened
 
   const onlyBox = bar.querySelector('.bsf-only input');
@@ -203,17 +205,13 @@
     apply();
   });
 
-  const items = cells.map((cell) => {
-    const catKey = cell.querySelector('input[id^="da"]')?.value.match(/SD_ILS:(\d+)$/)?.[1] ?? null;
+  const items = found.map(({ wrap, id, hint, format, book, host }) => {
     const badge = el('div', 'bsf-badge bsf-grey', 'Checking shelves...');
     const row = el('div', 'bsf-row');
-    row.append(badge, tasteButtons(bookFrom(cell, '.displayDetailLink a')));
-    cell.querySelector('.results_bio')?.prepend(row);
-    if (!catKey) {
-      const format = cell.querySelector('.displayElementText.FORMAT')?.textContent.trim() || 'Online';
-      setBadge(badge, 'grey', `${format}: online, no branch visit needed`);
-    }
-    return { wrap: cell.closest('.cell_wrapper') ?? cell, catKey, badge, homeOn: false, done: !catKey };
+    row.append(badge, tasteButtons(book));
+    host?.prepend(row);
+    if (!id) setBadge(badge, 'grey', `${format}: online, no branch visit needed`);
+    return { wrap, catKey: id, hint, badge, homeOn: false, done: !id };
   });
 
   function apply() {
@@ -238,7 +236,7 @@
 
   apply(); // some networks (e.g. Tasmania) need no token; if lookups fail, each badge says so
   for (const item of items.filter((i) => i.catKey)) {
-    check([item.catKey], item.badge)
+    check([item.catKey], item.badge, item.hint)
       .then((homeOn) => (item.homeOn = homeOn))
       .catch((err) => {
         console.warn('[Shelf Check]', err);
@@ -248,5 +246,62 @@
         item.done = true;
         apply();
       });
+  }
+
+  // --- page adapters: where things are on each catalogue system's pages ---------------
+  // Each returns { kind: 'results'|'detail'|'home'|null, resultsAnchor, homeAnchor, results(), detail() }.
+
+  function sirsiPage() {
+    const results = document.getElementById('results_wrapper');
+    const detail = document.getElementById('detail_biblio0');
+    const isHome = new RegExp(`/client/[^/]+/${lib.profile}/?$`).test(location.pathname);
+    return {
+      kind: results ? 'results' : detail ? 'detail' : isHome ? 'home' : null,
+      resultsAnchor: results,
+      homeAnchor: document.getElementById('content'),
+      results: () => [...document.querySelectorAll('.results_cell')].map((cell) => ({
+        wrap: cell.closest('.cell_wrapper') ?? cell,
+        id: cell.querySelector('input[id^="da"]')?.value.match(/SD_ILS:(\d+)$/)?.[1] ?? null,
+        format: cell.querySelector('.displayElementText.FORMAT')?.textContent.trim() || 'Online',
+        book: bookFrom(cell, '.displayDetailLink a'),
+        host: cell.querySelector('.results_bio'),
+      })),
+      detail: () => ({ book: bookFrom(detail, DETAIL_TITLE), place: (row) => detail.prepend(row) }),
+    };
+  }
+
+  // Spydus (Melbourne, Canberra): result cards in #result-content-list, record pages with an h1 and author links.
+  // Cards show no author, so likes from Spydus result pages are matched on title only.
+  function spydusPage() {
+    const list = document.getElementById('result-content-list');
+    const h1 = document.querySelector('h1');
+    const isRecord = !list && h1 && document.querySelector('a[href*="/XHLD/"]');
+    // The smallest element around one card, so hiding it never hides its neighbours.
+    const cardOf = (text) => {
+      let w = text;
+      while (w.parentElement && w.parentElement.querySelectorAll('.card-list-text').length === 1) w = w.parentElement;
+      return w;
+    };
+    return {
+      kind: list ? 'results' : isRecord ? 'detail' : null, // shortcut: no "For you" panel on Spydus home pages yet
+      resultsAnchor: list,
+      results: () => [...list.querySelectorAll('.card-list-text')].map((text) => {
+        const wrap = cardOf(text);
+        const format = wrap.querySelector('.recfrmt-icon')?.title ?? '';
+        const hint = wrap.querySelector('a[href*="/XHLD/"]')?.getAttribute('href');
+        return {
+          wrap,
+          id: spydus.isOnline(format) ? null : hint?.match(/\/(\d+)(?:\?|$)/)?.[1] ?? null,
+          hint,
+          format: format || 'Online',
+          book: { title: text.querySelector('.card-title a span, .card-title')?.textContent.trim() ?? '', author: '' },
+          host: text.querySelector('.card-record-body') ?? text,
+        };
+      }),
+      detail: () => ({
+        book: { title: h1.textContent.trim(), author: document.querySelector('a[href*="AUH="]')?.textContent.trim() ?? '' },
+        place: (row) => h1.after(row),
+      }),
+    };
   }
 })();

@@ -2,13 +2,16 @@
 // Example: node scripts/onshelf.mjs "H.P. Lovecraft" ASH          (Brisbane is the default network)
 //          node scripts/onshelf.mjs "H.P. Lovecraft" goldcoast:BRO
 // Prints titles from the search that are on the shelf at that branch right now.
-import { search, getSession, getCopies, onShelfAt } from '../extension/lib/catalogue.mjs';
+import * as sirsi from '../extension/lib/catalogue.mjs';
+import * as spydus from '../extension/lib/spydus.mjs';
 import { LIBRARIES, libraryById } from '../extension/lib/libraries.mjs';
 
 const [query, where = '', limit = '50'] = process.argv.slice(2);
 const [libId, code] = where.includes(':') ? where.split(':') : ['bcc', where];
 const lib = libraryById(libId);
 const branch = lib?.branches.find((b) => b.code === code.toUpperCase());
+const { search, getSession, getCopies } = lib?.system === 'spydus' ? spydus : sirsi;
+const { onShelfAt } = sirsi;
 
 if (!query || !branch) {
   console.error('Usage: node scripts/onshelf.mjs "<search>" [<network>:]<BRANCH_CODE> [limit]');

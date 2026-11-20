@@ -99,14 +99,14 @@ export async function getCounts(lib, catKey, session) {
 export const onShelfAt = (copies, branchName) => copies.filter((c) => c.library === branchName && c.onShelf).length;
 
 // --- badge text ---
-export const shortBranch = (name) => name.replace(/ Library.*$/, ''); // "Garden City Library (Westfield)" -> "Garden City"
+export const shortBranch = (name) => name.replace(/ (Library|Branch)\b.*$/, ''); // "Garden City Library (Westfield)" -> "Garden City", "Woden Branch" -> "Woden"
 export const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const sentence = (parts) => {
   const s = parts.filter(Boolean).join(', ');
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
 const friendlyStatus = (s) =>
-  /checked out/i.test(s) ? 'on loan' : /transit/i.test(s) ? 'in transit' : /hold/i.test(s) ? 'on the holds shelf' : s.toLowerCase();
+  /checked out|^on loan|^due /i.test(s) ? 'on loan' : /transit/i.test(s) ? 'in transit' : /hold/i.test(s) ? 'on the holds shelf' : s.toLowerCase();
 const listBranches = (names) => names.slice(0, 3).map(shortBranch).join(', ') + (names.length > 3 ? ` +${names.length - 3} more` : '');
 
 // Badge for one book. copies: from getCopies. home / second: { name } or undefined.

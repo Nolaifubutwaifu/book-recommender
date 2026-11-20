@@ -1,4 +1,5 @@
-// Every supported library network. `system` picks the catalogue client (catalogue.mjs for SirsiDynix Enterprise).
+// Every supported library network. `system` picks the catalogue client: 'sirsi' = catalogue.mjs (SirsiDynix Enterprise),
+// 'spydus' = spydus.mjs (Civica Spydus).
 // To add a SirsiDynix network: its web address, its profile (the part after /client/en_AU/ in its URLs),
 // its branches (codes from the "Library" filter on its search page) and its "on shelf" rule.
 // Also add the web address to manifest.json (a test checks this).
@@ -129,6 +130,46 @@ export const LIBRARIES = [
       { code: 'WHITEMARK', name: 'Whitemark Library' },
       { code: 'WYNYARD', name: 'Wynyard Library' },
       { code: 'ZEEHAN', name: 'Zeehan Library' },
+    ],
+  },
+  {
+    id: 'melbourne',
+    name: 'City of Melbourne Libraries',
+    system: 'spydus',
+    base: 'https://librarysearch.melbourne.vic.gov.au',
+    view: 'OPAC', // the part after /spydus.exe/ENQ/ in its URLs
+    onShelf: (status) => /^available/i.test(status), // "Available", "On loan - Due: 11 Dec 2026"
+    branchFilter: false,
+    // Names as they appear in holdings; "Southbank Library" not yet seen in a holdings table.
+    branches: [
+      { code: 'CITY', name: 'City Library' },
+      { code: 'EAST_MELBOURNE', name: 'East Melbourne Library' },
+      { code: 'KATHLEEN_SYME_CARLTON', name: 'Kathleen Syme Carlton' },
+      { code: 'LIBRARY_AT_THE_DOCK', name: 'Library at the Dock' },
+      { code: 'NORTH_MELBOURNE', name: 'North Melbourne Library' },
+      { code: 'NARRM_NGARRGU', name: 'narrm ngarrgu Library and Family Services' },
+      { code: 'SOUTHBANK', name: 'Southbank Library' },
+    ],
+  },
+  {
+    id: 'act',
+    name: 'Libraries ACT (Canberra)',
+    system: 'spydus',
+    base: 'https://librariesact.spydus.com',
+    view: 'OPAC', // its WPAC pages redirect to an app shell
+    onShelf: (status) => /^available/i.test(status),
+    branchFilter: false,
+    // Names as they appear in holdings; Civic, Kippax and Woden follow the "X Branch" pattern but were not seen yet.
+    branches: [
+      { code: 'BELCONNEN', name: 'Belconnen Branch' },
+      { code: 'CIVIC', name: 'Civic Branch' },
+      { code: 'DICKSON', name: 'Dickson Branch' },
+      { code: 'ERINDALE', name: 'Erindale Branch' },
+      { code: 'GUNGAHLIN', name: 'Gungahlin Branch' },
+      { code: 'KINGSTON', name: 'Kingston Branch' },
+      { code: 'KIPPAX', name: 'Kippax Branch' },
+      { code: 'TUGGERANONG', name: 'Tuggeranong Branch' },
+      { code: 'WODEN', name: 'Woden Branch' },
     ],
   },
 ];
