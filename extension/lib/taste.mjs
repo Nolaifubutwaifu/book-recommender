@@ -79,10 +79,15 @@ export const loadTaste = async () =>
   mergeTaste([], (await chrome.storage.local.get({ taste: [] })).taste.map((i) => ({ ...i, key: bookKey(i.title, i.author) })));
 export const saveTaste = (taste) => chrome.storage.local.set({ taste });
 
-// signal: 'liked' | 'disliked' | null (remove)
-export async function setSignal({ title, author }, signal) {
-  const key = bookKey(title, author);
-  const taste = (await loadTaste()).filter((i) => i.key !== key);
-  if (signal) taste.push({ key, title, author, signal, source: 'button', addedAt: new Date().toISOString().slice(0, 10) });
-  await saveTaste(taste);
+// signal: 'liked' | 'disliked' | null (remove). Saves run one after another, so two quick clicks
+// can't read the same old list and overwrite each other.
+let saving = Promise.resolve();
+export function setSignal({ title, author }, signal) {
+  saving = saving.catch(() => {}).then(async () => {
+    const key = bookKey(title, author);
+    const taste = (await loadTaste()).filter((i) => i.key !== key);
+    if (signal) taste.push({ key, title, author, signal, source: 'button', addedAt: new Date().toISOString().slice(0, 10) });
+    await saveTaste(taste);
+  });
+  return saving;
 }

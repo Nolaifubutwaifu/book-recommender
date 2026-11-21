@@ -16,6 +16,10 @@
   if (!page.kind) return;
 
   const settings = await chrome.storage.sync.get({ onlyOnShelf: false, format: 'all' });
+  // Branch changes in the popup apply straight away.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'sync' && changes[`branches:${lib.id}`]) location.reload();
+  });
   const { home, second } = await libs.branchSettings(lib);
   const token = [...document.scripts].map((s) => s.textContent).join('\n').match(/__sdcsrf = "([^"]+)"/)?.[1];
   const session = { token, cookie: '' }; // same-origin fetch sends the page's cookies itself
@@ -53,11 +57,12 @@
       const b = el('button', `bsf-taste-btn bsf-${signal}`, label);
       b.type = 'button';
       b.setAttribute('aria-pressed', String(tasteByKey.get(key) === signal));
-      b.addEventListener('click', async () => {
+      b.addEventListener('click', () => {
+        // State first, save after: a fast second click sees the first one and toggles back.
         const next = tasteByKey.get(key) === signal ? null : signal;
-        await taste.setSignal(book, next);
         next ? tasteByKey.set(key, next) : tasteByKey.delete(key);
         buttons.forEach((x, i) => x.setAttribute('aria-pressed', String(tasteByKey.get(key) === ['liked', 'disliked'][i])));
+        taste.setSignal(book, next).catch((err) => console.warn('[Shelf Check]', err));
       });
       wrap.append(b);
       return b;
@@ -113,7 +118,7 @@
           if (!res.ok) throw new Error(`Open Library: HTTP ${res.status}`);
           return res.json();
         }),
-        searchCatalogue: (q) => cache.catalogueGate(() => client.search(lib, q)),
+        searchCatalogue: (title, author) => cache.catalogueGate(() => client.findBook(lib, title, author)),
         getCopies,
       };
       let shown = 0;
@@ -276,6 +281,7 @@
     const list = document.getElementById('result-content-list');
     const h1 = document.querySelector('h1');
     const isRecord = !list && h1 && document.querySelector('a[href*="/XHLD/"]');
+    const isHome = /\/MSGTRN\/[A-Z]+\/HOME$/.test(location.pathname);
     // The smallest element around one card, so hiding it never hides its neighbours.
     const cardOf = (text) => {
       let w = text;
@@ -283,18 +289,20 @@
       return w;
     };
     return {
-      kind: list ? 'results' : isRecord ? 'detail' : null, // shortcut: no "For you" panel on Spydus home pages yet
+      kind: list ? 'results' : isRecord ? 'detail' : isHome ? 'home' : null,
       resultsAnchor: list,
+      homeAnchor: document.getElementById('contentTabContainers') ?? document.querySelector('main'),
       results: () => [...list.querySelectorAll('.card-list-text')].map((text) => {
         const wrap = cardOf(text);
         const format = wrap.querySelector('.recfrmt-icon')?.title ?? '';
         const hint = wrap.querySelector('a[href*="/XHLD/"]')?.getAttribute('href');
+        const title = text.querySelector('.card-title a, .card-title')?.textContent.trim() ?? ''; // whole link: search terms are split into highlight spans
         return {
           wrap,
-          id: spydus.isOnline(format) ? null : hint?.match(/\/(\d+)(?:\?|$)/)?.[1] ?? null,
+          id: spydus.isOnline(format, title) ? null : hint?.match(/\/(\d+)(?:\?|$)/)?.[1] ?? null,
           hint,
-          format: format || 'Online',
-          book: { title: text.querySelector('.card-title a span, .card-title')?.textContent.trim() ?? '', author: '' },
+          format: format || 'Online item',
+          book: { title, author: '' },
           host: text.querySelector('.card-record-body') ?? text,
         };
       }),

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { parseResults, parseHoldings, isOnline, detailUrl } from '../extension/lib/spydus.mjs';
+import { parseResults, parseHoldings, parseRss, isOnline, detailUrl } from '../extension/lib/spydus.mjs';
 import { libraryById } from '../extension/lib/libraries.mjs';
 import { describeCopies } from '../extension/lib/catalogue.mjs';
 
@@ -31,5 +31,18 @@ test('parseHoldings reads the availability table with the network rule', async (
 test('online formats and stable record links', () => {
   assert.ok(isOnline('eBook') && isOnline('eAudioBook') && isOnline('Streaming Video'));
   assert.ok(!isOnline('Book') && !isOnline('Videos and DVDs'));
+  assert.ok(isOnline('', 'Abe Sapien Volume 2 [eComic]') && isOnline('Book', 'At the Mountains of Madness [electronic resource] : And Other Tales'));
+  assert.ok(!isOnline('Book', 'Color out of space. [dvd]'));
   assert.equal(detailUrl(melbourne, '643818'), 'https://librarysearch.melbourne.vic.gov.au/cgi-bin/spydus.exe/ENQ/OPAC/BIBENQ?SETLVL=&IRN=643818');
+});
+
+test('parseRss reads Melbourne feed items with the author and a BRN id', () => {
+  const xml = `<rss><channel><item><title>&lt;span class="highlight"&gt;At&lt;/span&gt; the mountains of madness / H.P. Lovecraft.</title>
+    <link>https://librarysearch.melbourne.vic.gov.au/cgi-bin/spydus.exe/ENQ/OPAC/BIBENQ?SETLVL=&amp;BRN=637578&amp;CF=BIB</link></item>
+    <item><title>Call of Cthulhu [eComic]</title><link>https://x/cgi-bin/spydus.exe/ENQ/OPAC/BIBENQ?SETLVL=&amp;BRN=839894&amp;CF=BIB</link></item></channel></rss>`;
+  assert.deepEqual(parseRss(xml), [
+    { catKey: 'b637578', title: 'At the mountains of madness', author: 'H.P. Lovecraft.', format: '' },
+    { catKey: null, title: 'Call of Cthulhu [eComic]', author: null, format: '' },
+  ]);
+  assert.match(detailUrl(melbourne, 'b637578'), /BIBENQ\?SETLVL=&BRN=637578$/);
 });
