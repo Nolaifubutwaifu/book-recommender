@@ -140,7 +140,7 @@ export const LIBRARIES = [
     view: 'OPAC', // the part after /spydus.exe/ENQ/ in its URLs
     onShelf: (status) => /^available/i.test(status), // "Available", "On loan - Due: 11 Dec 2026"
     branchFilter: false,
-    // Names as they appear in holdings; "Southbank Library" not yet seen in a holdings table.
+    // Names exactly as they appear in holdings tables (all seen 21 Nov 2026).
     branches: [
       { code: 'CITY', name: 'City Library' },
       { code: 'EAST_MELBOURNE', name: 'East Melbourne Library' },
@@ -159,7 +159,7 @@ export const LIBRARIES = [
     view: 'OPAC', // its WPAC pages redirect to an app shell
     onShelf: (status) => /^available/i.test(status),
     branchFilter: false,
-    // Names as they appear in holdings; Civic, Kippax and Woden follow the "X Branch" pattern but were not seen yet.
+    // Names exactly as they appear in holdings tables. "Civic Branch" not seen: Civic Library was closed in Nov 2026.
     branches: [
       { code: 'BELCONNEN', name: 'Belconnen Branch' },
       { code: 'CIVIC', name: 'Civic Branch' },
