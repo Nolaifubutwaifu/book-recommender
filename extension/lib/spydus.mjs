@@ -9,8 +9,10 @@ const text = (html) =>
   html.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
     .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n))).replace(/\s+/g, ' ').trim();
 
-// Formats from the result card icon ("Book", "Videos and DVDs", "eBook", "eAudioBook", "Streaming Video", ...).
-export const isOnline = (format = '') => /^e[A-Z]|stream|online|digital/i.test(format);
+// Format from the result card icon ("Book", "Videos and DVDs", "eBook", "eAudioBook", "Streaming Video", ...).
+// Some online items carry it only in the title: "[eComic]", "[electronic resource]".
+export const isOnline = (format = '', title = '') =>
+  /^e[A-Z]|stream|online|digital/i.test(format) || /\[(e[A-Z][a-z]+|electronic resource)\]/i.test(title);
 const ONLINE_LOCATION = /^(eLibrary|Online Library)$/i;
 
 export const detailUrl = (lib, irn) => `${exe(lib)}/ENQ/${lib.view}/BIBENQ?SETLVL=&IRN=${irn}`;
@@ -23,9 +25,10 @@ export function parseResults(html) {
   return html.split('card-list-image"').slice(1).map((card) => {
     const format = card.match(/recfrmt-icon[^>]*title="([^"]+)"/)?.[1] ?? '';
     const irn = card.match(/\/XHLD\/[A-Z]+\/BIBENQ\/\d+\/(\d+)/)?.[1] ?? null;
+    const title = text(card.match(/class="card-title"[\s\S]*?<span>([\s\S]*?)<\/span>/)?.[1] ?? '');
     return {
-      catKey: isOnline(format) ? null : irn,
-      title: text(card.match(/class="card-title"[\s\S]*?<span>([\s\S]*?)<\/span>/)?.[1] ?? ''),
+      catKey: isOnline(format, title) ? null : irn,
+      title,
       author: null,
       format,
     };

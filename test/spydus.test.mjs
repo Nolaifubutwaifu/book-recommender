@@ -31,5 +31,7 @@ test('parseHoldings reads the availability table with the network rule', async (
 test('online formats and stable record links', () => {
   assert.ok(isOnline('eBook') && isOnline('eAudioBook') && isOnline('Streaming Video'));
   assert.ok(!isOnline('Book') && !isOnline('Videos and DVDs'));
+  assert.ok(isOnline('', 'Abe Sapien Volume 2 [eComic]') && isOnline('Book', 'At the Mountains of Madness [electronic resource] : And Other Tales'));
+  assert.ok(!isOnline('Book', 'Color out of space. [dvd]'));
   assert.equal(detailUrl(melbourne, '643818'), 'https://librarysearch.melbourne.vic.gov.au/cgi-bin/spydus.exe/ENQ/OPAC/BIBENQ?SETLVL=&IRN=643818');
 });

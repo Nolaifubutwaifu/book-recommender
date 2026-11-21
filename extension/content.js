@@ -289,12 +289,13 @@
         const wrap = cardOf(text);
         const format = wrap.querySelector('.recfrmt-icon')?.title ?? '';
         const hint = wrap.querySelector('a[href*="/XHLD/"]')?.getAttribute('href');
+        const title = text.querySelector('.card-title a span, .card-title')?.textContent.trim() ?? '';
         return {
           wrap,
-          id: spydus.isOnline(format) ? null : hint?.match(/\/(\d+)(?:\?|$)/)?.[1] ?? null,
+          id: spydus.isOnline(format, title) ? null : hint?.match(/\/(\d+)(?:\?|$)/)?.[1] ?? null,
           hint,
-          format: format || 'Online',
-          book: { title: text.querySelector('.card-title a span, .card-title')?.textContent.trim() ?? '', author: '' },
+          format: format || 'Online item',
+          book: { title, author: '' },
           host: text.querySelector('.card-record-body') ?? text,
         };
       }),
