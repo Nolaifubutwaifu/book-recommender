@@ -16,6 +16,10 @@
   if (!page.kind) return;
 
   const settings = await chrome.storage.sync.get({ onlyOnShelf: false, format: 'all' });
+  // Branch changes in the popup apply straight away.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'sync' && changes[`branches:${lib.id}`]) location.reload();
+  });
   const { home, second } = await libs.branchSettings(lib);
   const token = [...document.scripts].map((s) => s.textContent).join('\n').match(/__sdcsrf = "([^"]+)"/)?.[1];
   const session = { token, cookie: '' }; // same-origin fetch sends the page's cookies itself
@@ -53,11 +57,12 @@
       const b = el('button', `bsf-taste-btn bsf-${signal}`, label);
       b.type = 'button';
       b.setAttribute('aria-pressed', String(tasteByKey.get(key) === signal));
-      b.addEventListener('click', async () => {
+      b.addEventListener('click', () => {
+        // State first, save after: a fast second click sees the first one and toggles back.
         const next = tasteByKey.get(key) === signal ? null : signal;
-        await taste.setSignal(book, next);
         next ? tasteByKey.set(key, next) : tasteByKey.delete(key);
         buttons.forEach((x, i) => x.setAttribute('aria-pressed', String(tasteByKey.get(key) === ['liked', 'disliked'][i])));
+        taste.setSignal(book, next).catch((err) => console.warn('[Shelf Check]', err));
       });
       wrap.append(b);
       return b;

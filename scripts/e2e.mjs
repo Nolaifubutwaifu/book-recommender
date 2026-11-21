@@ -4,7 +4,7 @@
 // then checks badges, the on-shelf filter and the branch search link on a real search.
 import { chromium } from 'playwright';
 import { createHash } from 'node:crypto';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,7 +16,8 @@ const id = [...createHash('sha256').update(ext).digest('hex').slice(0, 32)]
   .join('');
 const SEARCH = 'https://library-brisbane.ent.sirsidynix.net.au/client/en_AU/eLibCat/search/results?qu=H.P.+Lovecraft&te=';
 
-const ctx = await chromium.launchPersistentContext(mkdtempSync(join(tmpdir(), 'shelf-check-')), {
+const profileDir = mkdtempSync(join(tmpdir(), 'shelf-check-'));
+const ctx = await chromium.launchPersistentContext(profileDir, {
   channel: 'chromium',
   args: [`--disable-extensions-except=${ext}`, `--load-extension=${ext}`],
 });
@@ -58,6 +59,8 @@ try {
   check(!badges.some(([, t]) => t.includes('Could not')), 'no failed lookups');
 
   const like = page.locator('.results_cell .bsf-liked').nth(1);
+  await like.dblclick();
+  check((await like.getAttribute('aria-pressed')) === 'false', 'double-click on Like ends where it started');
   await like.click();
   check((await like.getAttribute('aria-pressed')) === 'true', 'like button toggles on');
   await options.reload();
@@ -132,5 +135,6 @@ try {
   check(true, 'melbourne: record page has like buttons');
 } finally {
   await ctx.close();
+  rmSync(profileDir, { recursive: true, force: true });
 }
 process.exit(failed ? 1 : 0);
