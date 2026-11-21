@@ -67,7 +67,7 @@ Goal: prove we can get every piece of data before building UI.
 - [x] Open DevTools on a results page, capture the `lookupavailability` request and response. Document: URL pattern, which IDs it needs, whether it returns per-branch copies and status (On shelf, On loan, In transit, Due date).
 - [x] Confirm the URL parameter for the branch facet, so we can link to "this search, filtered to Ashgrove".
 - [x] Confirm RSS feed limits: max results, response time, whether it accepts `qu=` with author and title fields.
-- [x] Extract the full branch list (code, name) into `extension/lib/branches.json`.
+- [x] Extract the full branch list (code, name) into `extension/lib/libraries.mjs`.
 - [x] Write findings to `docs/catalogue-notes.md`.
 
 **Done when:** a 30-line script takes a search term and a branch code and prints titles that are on shelf at that branch.
@@ -133,11 +133,11 @@ Research: checked which catalogue software each major city's public library runs
 | Perth | Not identified | | |
 
 Plan (built on branch `multi-library`, one commit per network, so any step can be dropped):
-- [ ] Per-library settings: web address, profile, branch list, "on shelf" rule, home and second branch per network.
-- [ ] Gold Coast.
-- [ ] Libraries Tasmania.
-- [ ] SA One Card: only if it can be checked without getting past the bot check automatically.
-- [ ] Spydus adapter: City of Melbourne, then Libraries ACT.
+- [x] Per-library settings: web address, profile, branch list, "on shelf" rule, home and second branch per network (`extension/lib/libraries.mjs`).
+- [~] Gold Coast: added (13 branches). Not verified: its copy lookups are bot-protected, so only a real browser can check them, and its status wording is assumed to match Brisbane. Needs one manual check.
+- [x] Libraries Tasmania: 45 public branches, own status rule (shelf location = on shelf, "Due <date>", "In Transit", "Hold awaiting pickup" = not), no token needed, no branch filter. Verified end to end.
+- [ ] SA One Card: skipped. A bot check sits in front of the site, and getting past it automatically is not acceptable. Needs a person to open it once and note the profile name in the address (`/client/en_AU/<council>/`) and the Status wording on a book page.
+- [x] Spydus adapter (`extension/lib/spydus.mjs`): City of Melbourne (7 branches) and Libraries ACT (9 branches). Verified end to end. Slower than SirsiDynix: search pages are heavy and copies need two requests outside a results page. Cards show no author, so likes on Spydus result pages match on title only. No "For you" panel on Spydus home pages yet (it is on results pages).
 - [ ] Later: Sydney (Montage), Darwin (WorldCat), Perth.
 
 The recommendation pipeline needs no changes: it only receives "search" and "get copies" functions, so each network plugs in its own.

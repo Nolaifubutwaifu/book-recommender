@@ -1,7 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { parseRss, rssUrl, onShelfAt, parseCounts, describeCopies } from '../extension/lib/catalogue.mjs';
+import { parseRss, rssUrl, onShelfAt, parseCounts, describeCopies, toCopies } from '../extension/lib/catalogue.mjs';
+import { libraryById } from '../extension/lib/libraries.mjs';
+
+const bcc = libraryById('bcc');
 
 const fixture = (f) => readFile(new URL(`./fixtures/${f}`, import.meta.url), 'utf8');
 
@@ -21,13 +24,13 @@ test('parseRss reads physical books from a saved feed', async () => {
 
 test('rssUrl encodes the branch filter the way the catalogue expects', () => {
   assert.equal(
-    rssUrl('H.P. Lovecraft', { code: 'ASH', name: 'Ashgrove Library' }),
+    rssUrl(bcc, 'H.P. Lovecraft', { code: 'ASH', name: 'Ashgrove Library' }),
     'https://library-brisbane.ent.sirsidynix.net.au/client/rss/hitlist/eLibCat/qu=H.P.+Lovecraft&qf=LIBRARY%09Library%091%3AASH%09Ashgrove%20Library',
   );
 });
 
 test('onShelfAt counts only on-shelf copies at the given branch', async () => {
-  const copies = JSON.parse(await fixture('titleinfo-824506.json')).childRecords;
+  const copies = toCopies(bcc, JSON.parse(await fixture('titleinfo-824506.json')).childRecords);
   assert.equal(onShelfAt(copies, 'Kenmore Library'), 1);
   assert.equal(onShelfAt(copies, 'Holland Park Library'), 0); // checked out
   assert.equal(onShelfAt(copies, 'Ashgrove Library'), 0); // no copy
@@ -39,7 +42,7 @@ test('parseCounts reads available, copy and hold counts', async () => {
 
 test('describeCopies picks the badge colour and text', () => {
   const home = { name: 'Ashgrove Library' }, second = { name: 'Kenmore Library' };
-  const c = (LIBRARY, SD_ITEM_STATUS) => ({ LIBRARY, SD_ITEM_STATUS });
+  const c = (library, status) => ({ library, status, onShelf: status === shelf });
   const shelf = 'On Shelf in library';
   const d = (copies, holds) => { const r = describeCopies(copies, home, second, holds); return `${r.colour}: ${r.text}`; };
   assert.equal(d([c('Ashgrove Library', shelf)]), 'green: On shelf at Ashgrove');

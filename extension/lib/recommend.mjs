@@ -1,7 +1,6 @@
 // Recommendations without AI: liked books -> Open Library subjects and authors -> similar popular books
 // -> keep only those on a shelf at some Brisbane library right now -> best matches first.
 import { normTitle, surname, bookKey } from './taste.mjs';
-import { isOnShelf } from './catalogue.mjs';
 import { DAY } from './cache.mjs';
 
 const OL = 'https://openlibrary.org/search.json';
@@ -145,7 +144,7 @@ export async function recommend({ taste, deps, onProgress = () => {}, want = 10 
     if (!catKeys.length) continue;
     // Not swallowed: if the catalogue session expired, every lookup fails and the panel should say so.
     const copies = (await Promise.all(catKeys.map(deps.getCopies))).flat();
-    if (!copies.some(isOnShelf)) continue;
+    if (!copies.some((c) => c.onShelf)) continue;
     found.push({ ...c, catKeys });
     if (found.length >= want) break;
   }

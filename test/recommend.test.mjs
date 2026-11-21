@@ -75,7 +75,7 @@ test('recommend runs the whole pipeline with fake services', async () => {
     cached: (key, ttl, fn) => fn(),
     fetchJson: async (url) => (url.includes('title=') ? ol.seed : { docs: [ol.misery, ol.rebecca, ol.shining] }),
     searchCatalogue: async (q) => Object.entries(records).filter(([t]) => q.startsWith(t)).map(([, r]) => r),
-    getCopies: async (k) => [{ LIBRARY: 'Inala Library', SD_ITEM_STATUS: status[k] }],
+    getCopies: async (k) => [{ library: 'Inala Library', status: status[k], onShelf: status[k].startsWith('On Shelf') }],
   };
   const taste = [{ key: 'haunting of hill house|jackson', title: 'The Haunting of Hill House', author: 'Shirley Jackson', signal: 'liked', addedAt: '2024-01-01' }];
   const recs = await recommend({ taste, deps });

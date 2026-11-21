@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Shelf Check for Brisbane Libraries (unofficial)",
-  "description": "Shows which Brisbane City Council library has each book on the shelf right now, and recommends books you will like that are available near you.",
+  "name": "Shelf Check for Australian Libraries (unofficial)",
+  "description": "Shows which library has each book on the shelf right now, and recommends books you will like that are available near you. Brisbane, Gold Coast, Tasmania, Melbourne and Canberra.",
   "version": "0.2.0",
   "permissions": [
     "storage"
@@ -13,7 +13,11 @@
   "content_scripts": [
     {
       "matches": [
-        "https://library-brisbane.ent.sirsidynix.net.au/client/*"
+        "https://library-brisbane.ent.sirsidynix.net.au/client/*",
+        "https://librarycatalogue.goldcoast.qld.gov.au/client/*",
+        "https://librariestas.ent.sirsidynix.net.au/client/*",
+        "https://librarysearch.melbourne.vic.gov.au/cgi-bin/*",
+        "https://librariesact.spydus.com/cgi-bin/*"
       ],
       "js": [
         "content.js"
@@ -27,11 +31,14 @@
     {
       "resources": [
         "lib/*.mjs",
-        "lib/branches.json",
         "options.html"
       ],
       "matches": [
-        "https://library-brisbane.ent.sirsidynix.net.au/*"
+        "https://library-brisbane.ent.sirsidynix.net.au/*",
+        "https://librarycatalogue.goldcoast.qld.gov.au/*",
+        "https://librariestas.ent.sirsidynix.net.au/*",
+        "https://librarysearch.melbourne.vic.gov.au/*",
+        "https://librariesact.spydus.com/*"
       ]
     }
   ],

@@ -1,7 +1,14 @@
-# Shelf Check for Brisbane Libraries (unofficial)
+# Shelf Check for Australian Libraries (unofficial)
 
-A Chrome extension for the [Brisbane City Council library catalogue](https://library-brisbane.ent.sirsidynix.net.au/client/en_AU/eLibCat/).
-It shows, on every search result, whether the book is on the shelf at **your** library right now.
+A Chrome extension for public library catalogues. It shows, on every search result, whether the book is on the shelf at **your** library right now.
+
+| Network | Catalogue | Status |
+|---|---|---|
+| [Brisbane City Council Libraries](https://library-brisbane.ent.sirsidynix.net.au/client/en_AU/eLibCat/) | SirsiDynix | Tested |
+| [Libraries Tasmania](https://librariestas.ent.sirsidynix.net.au/client/en_AU/library/) | SirsiDynix | Tested |
+| [City of Melbourne Libraries](https://librarysearch.melbourne.vic.gov.au/) | Spydus | Tested |
+| [Libraries ACT (Canberra)](https://librariesact.spydus.com/) | Spydus | Tested |
+| [Gold Coast Libraries](https://librarycatalogue.goldcoast.qld.gov.au/client/en_AU/default/) | SirsiDynix | Added, not yet checked in a browser |
 
 - Green: on shelf at your library.
 - Amber: not on shelf at your library, but on shelf at another branch (your second library first).
@@ -19,7 +26,7 @@ Not affiliated with Brisbane City Council. Uses the catalogue's public search fe
 1. Download this repo (Code > Download ZIP) and unzip it, or `git clone` it.
 2. In Chrome, open `chrome://extensions` and switch on **Developer mode** (top right).
 3. Click **Load unpacked** and pick the `extension` folder.
-4. Click the puzzle icon in the toolbar, pin **Shelf Check**, click it and choose your library.
+4. Click the puzzle icon in the toolbar, pin **Shelf Check**, click it, choose your library network and your library.
    For recommendations, click "Taste profile and Goodreads / StoryGraph import" in the same menu.
 5. Search the catalogue as usual.
 
@@ -31,11 +38,13 @@ Works in Chrome, Edge and Brave.
 npm test                                    # parser tests against saved catalogue responses
 npx playwright install chromium             # once, for the end-to-end test
 npm run e2e                                 # loads the extension and checks a live search
-node scripts/onshelf.mjs "H.P. Lovecraft" ASH   # command-line version: what's on shelf at a branch
+node scripts/onshelf.mjs "H.P. Lovecraft" ASH   # what's on shelf at a branch (tas:HOBART, melbourne:CITY, ...)
 ```
 
 - `extension/`: the extension (Manifest V3, plain JavaScript, no build step).
-- `extension/lib/catalogue.mjs`: catalogue client, shared by the extension and the scripts.
+- `extension/lib/libraries.mjs`: supported networks (address, branches, "on shelf" rule).
+- `extension/lib/catalogue.mjs`: SirsiDynix catalogue client and badge text, shared by the extension and the scripts.
+- `extension/lib/spydus.mjs`: Spydus catalogue client.
 - `extension/lib/taste.mjs`: taste profile, Goodreads and StoryGraph import.
 - `extension/lib/recommend.mjs`: recommendation pipeline (Open Library + catalogue).
 - `docs/catalogue-notes.md`: how the catalogue's data sources work.

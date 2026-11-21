@@ -1,26 +1,32 @@
-// Usage: node scripts/onshelf.mjs "<search>" <BRANCH_CODE> [limit]
-// Example: node scripts/onshelf.mjs "H.P. Lovecraft" ASH
+// Usage: node scripts/onshelf.mjs "<search>" [<network>:]<BRANCH_CODE> [limit]
+// Example: node scripts/onshelf.mjs "H.P. Lovecraft" ASH          (Brisbane is the default network)
+//          node scripts/onshelf.mjs "H.P. Lovecraft" goldcoast:BRO
 // Prints titles from the search that are on the shelf at that branch right now.
-import { readFile } from 'node:fs/promises';
-import { search, getSession, getCopies, onShelfAt } from '../extension/lib/catalogue.mjs';
+import * as sirsi from '../extension/lib/catalogue.mjs';
+import * as spydus from '../extension/lib/spydus.mjs';
+import { LIBRARIES, libraryById } from '../extension/lib/libraries.mjs';
 
-const [query, code, limit = '50'] = process.argv.slice(2);
-const branches = JSON.parse(await readFile(new URL('../extension/lib/branches.json', import.meta.url), 'utf8'));
-const branch = branches.find((b) => b.code === code?.toUpperCase());
+const [query, where = '', limit = '50'] = process.argv.slice(2);
+const [libId, code] = where.includes(':') ? where.split(':') : ['bcc', where];
+const lib = libraryById(libId);
+const branch = lib?.branches.find((b) => b.code === code.toUpperCase());
+const { search, getSession, getCopies } = lib?.system === 'spydus' ? spydus : sirsi;
+const { onShelfAt } = sirsi;
 
 if (!query || !branch) {
-  console.error('Usage: node scripts/onshelf.mjs "<search>" <BRANCH_CODE> [limit]');
-  console.error('Branch codes: ' + branches.map((b) => `${b.code} (${b.name})`).join(', '));
+  console.error('Usage: node scripts/onshelf.mjs "<search>" [<network>:]<BRANCH_CODE> [limit]');
+  for (const l of LIBRARIES) console.error(`${l.id}: ${l.branches.map((b) => `${b.code} (${b.name})`).join(', ')}`);
   process.exit(1);
 }
 
-const items = (await search(query, branch)).filter((i) => i.catKey).slice(0, Number(limit));
-console.log(`${items.length} physical titles held at ${branch.name}. Checking shelves...\n`);
+// Networks without a branch filter (Tasmania): search everything, then check copies for the branch.
+const items = (await search(lib, query, lib.branchFilter === false ? undefined : branch)).filter((i) => i.catKey).slice(0, Number(limit));
+console.log(`${items.length} physical titles${lib.branchFilter === false ? '' : ` held at ${branch.name}`}. Checking shelves...\n`);
 
-const session = await getSession();
+const session = await getSession(lib);
 let found = 0;
 for (const item of items) {
-  const n = onShelfAt(await getCopies(item.catKey, session), branch.name);
+  const n = onShelfAt(await getCopies(lib, item.catKey, session), branch.name);
   if (n) {
     found++;
     console.log(`ON SHELF (${n})  ${item.title}  [${item.callNumber ?? 'no call number'}]`);
