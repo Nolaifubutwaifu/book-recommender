@@ -113,7 +113,7 @@
           if (!res.ok) throw new Error(`Open Library: HTTP ${res.status}`);
           return res.json();
         }),
-        searchCatalogue: (q) => cache.catalogueGate(() => client.search(lib, q)),
+        searchCatalogue: (title, author) => cache.catalogueGate(() => client.findBook(lib, title, author)),
         getCopies,
       };
       let shown = 0;
@@ -289,7 +289,7 @@
         const wrap = cardOf(text);
         const format = wrap.querySelector('.recfrmt-icon')?.title ?? '';
         const hint = wrap.querySelector('a[href*="/XHLD/"]')?.getAttribute('href');
-        const title = text.querySelector('.card-title a span, .card-title')?.textContent.trim() ?? '';
+        const title = text.querySelector('.card-title a, .card-title')?.textContent.trim() ?? ''; // whole link: search terms are split into highlight spans
         return {
           wrap,
           id: spydus.isOnline(format, title) ? null : hint?.match(/\/(\d+)(?:\?|$)/)?.[1] ?? null,

@@ -54,6 +54,9 @@ export async function search(lib, query, branch) {
   return parseRss(await res.text());
 }
 
+// For matching a recommended book: keyword search on title words plus the author's surname.
+export const findBook = (lib, title, author) => search(lib, `${title} ${author}`);
+
 // Copy lookups are POSTs that need the page's anti-forgery token (sdcsrf). In the extension the
 // content script reads it from the page; from Node this fetches a page to get one.
 export async function getSession(lib) {

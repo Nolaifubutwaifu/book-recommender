@@ -110,7 +110,7 @@ const quietly = async (fn, fallback) => {
   }
 };
 
-// deps: { fetchJson(url), searchCatalogue(query), getCopies(catKey), cached(key, ttl, fn) }, rate limits applied by the caller.
+// deps: { fetchJson(url), searchCatalogue(title, surname), getCopies(catKey), cached(key, ttl, fn) }, rate limits applied by the caller.
 // onProgress(message, recommendationsSoFar) is called as work happens, so the panel can fill in gradually.
 // Only books with a copy on shelf somewhere (green or amber badge) are returned; a book nobody can borrow today is no use.
 export async function recommend({ taste, deps, onProgress = () => {}, want = 10 }) {
@@ -135,18 +135,23 @@ export async function recommend({ taste, deps, onProgress = () => {}, want = 10 
   }
 
   const candidates = scoreCandidates(profile, seeds, docs, taste);
-  const found = []; // candidates come in best-match order, so `found` stays ranked
-  for (const [n, c] of candidates.entries()) {
-    onProgress(`Checking the catalogue (${n + 1} of ${candidates.length})...`, [...found]);
+  // Returns the candidate with its catalogue records if a copy is on a shelf somewhere, else null.
+  const check = async (c) => {
     // "match2": matches cached before the surname and title-filter fixes could be wrongly empty.
     const catKeys = await quietly(() => deps.cached(`cat:match2:${c.doc.key}`, 7 * DAY, async () =>
-      pickRecords(c.doc, await deps.searchCatalogue(`${shortTitle(c.doc.title)} ${surname(c.doc.author)}`)).map((r) => r.catKey)), []);
-    if (!catKeys.length) continue;
+      pickRecords(c.doc, await deps.searchCatalogue(shortTitle(c.doc.title), surname(c.doc.author))).map((r) => r.catKey)), []);
+    if (!catKeys.length) return null;
     // Not swallowed: if the catalogue session expired, every lookup fails and the panel should say so.
     const copies = (await Promise.all(catKeys.map(deps.getCopies))).flat();
-    if (!copies.some((c) => c.onShelf)) continue;
-    found.push({ ...c, catKeys });
-    if (found.length >= want) break;
+    return copies.some((x) => x.onShelf) ? { ...c, catKeys } : null;
+  };
+
+  // 3 at a time: the rate limits still hold, but one slow search no longer blocks the rest.
+  // Results are kept in candidate order, so `found` stays ranked best match first.
+  const found = [];
+  for (let i = 0; i < candidates.length && found.length < want; i += 3) {
+    onProgress(`Checking the catalogue (${Math.min(i + 3, candidates.length)} of ${candidates.length})...`, [...found]);
+    for (const r of await Promise.all(candidates.slice(i, i + 3).map(check))) if (r && found.length < want) found.push(r);
   }
   return found;
 }

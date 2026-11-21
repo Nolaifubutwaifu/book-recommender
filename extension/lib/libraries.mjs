@@ -138,6 +138,7 @@ export const LIBRARIES = [
     system: 'spydus',
     base: 'https://librarysearch.melbourne.vic.gov.au',
     view: 'OPAC', // the part after /spydus.exe/ENQ/ in its URLs
+    rss: true, // has a search feed, used for recommendation matching
     onShelf: (status) => /^available/i.test(status), // "Available", "On loan - Due: 11 Dec 2026"
     branchFilter: false,
     // Names exactly as they appear in holdings tables (all seen 21 Nov 2026).
