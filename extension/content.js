@@ -281,6 +281,7 @@
     const list = document.getElementById('result-content-list');
     const h1 = document.querySelector('h1');
     const isRecord = !list && h1 && document.querySelector('a[href*="/XHLD/"]');
+    const isHome = /\/MSGTRN\/[A-Z]+\/HOME$/.test(location.pathname);
     // The smallest element around one card, so hiding it never hides its neighbours.
     const cardOf = (text) => {
       let w = text;
@@ -288,8 +289,9 @@
       return w;
     };
     return {
-      kind: list ? 'results' : isRecord ? 'detail' : null, // shortcut: no "For you" panel on Spydus home pages yet
+      kind: list ? 'results' : isRecord ? 'detail' : isHome ? 'home' : null,
       resultsAnchor: list,
+      homeAnchor: document.getElementById('contentTabContainers') ?? document.querySelector('main'),
       results: () => [...list.querySelectorAll('.card-list-text')].map((text) => {
         const wrap = cardOf(text);
         const format = wrap.querySelector('.recfrmt-icon')?.title ?? '';
