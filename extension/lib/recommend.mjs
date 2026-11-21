@@ -50,11 +50,14 @@ export function buildProfile(seeds) {
 }
 
 // Similarity: weighted shared subjects, damped for books with very long subject lists, plus a bonus for liked authors.
-// shortcut: disliked books are only excluded, not used to push similar books down; add if recommendations feel off.
-export function scoreCandidates(profile, seeds, docs, taste, limit = 80) {
+// avoid: profile of disliked books. Subjects only disliked books have push a candidate down; a subject that liked
+// books share too ("horror") is left alone. Books by an author you only dislike are skipped.
+export function scoreCandidates(profile, seeds, docs, taste, limit = 80, avoid = null) {
   const exclude = new Set([...taste.map((i) => i.key), ...seeds.map((s) => bookKey(s.doc.title, s.doc.author))]);
   const seen = new Set(seeds.map((s) => s.doc.key));
   const maxW = Math.max(1, ...profile.subjects.values());
+  const dw = (s) => (profile.subjects.has(s) ? 0 : avoid?.subjects.get(s) ?? 0);
+  const maxDW = Math.max(1, ...(avoid?.subjects.values() ?? []));
   const scored = [];
 
   for (const doc of docs) {
@@ -63,7 +66,10 @@ export function scoreCandidates(profile, seeds, docs, taste, limit = 80) {
     const w = (s) => profile.subjects.get(s) ?? 0;
     const shared = doc.subjects.filter(w).sort((a, b) => w(b) - w(a));
     const likedAuthor = profile.authors.has(doc.authorKey);
-    const score = shared.reduce((n, s) => n + w(s) / maxW, 0) / Math.sqrt(doc.subjects.length + 1) + (likedAuthor ? 0.5 : 0);
+    if (!likedAuthor && avoid?.authors.has(doc.authorKey)) continue;
+    const damp = Math.sqrt(doc.subjects.length + 1);
+    const penalty = (0.5 * doc.subjects.reduce((n, s) => n + dw(s) / maxDW, 0)) / damp; // half weight: lowers, rarely removes
+    const score = shared.reduce((n, s) => n + w(s) / maxW, 0) / damp + (likedAuthor ? 0.5 : 0) - penalty;
     if (score > 0) scored.push({ doc, score, reason: reasonFor(doc, shared, likedAuthor, seeds) });
   }
 
@@ -114,17 +120,23 @@ const quietly = async (fn, fallback) => {
 // onProgress(message, recommendationsSoFar) is called as work happens, so the panel can fill in gradually.
 // Only books with a copy on shelf somewhere (green or amber badge) are returned; a book nobody can borrow today is no use.
 export async function recommend({ taste, deps, onProgress = () => {}, want = 10 }) {
-  const likes = taste.filter((i) => i.signal === 'liked').sort((a, b) => b.addedAt.localeCompare(a.addedAt)).slice(0, 30);
-  const seeds = [];
-  for (const [n, item] of likes.entries()) {
-    onProgress(`Reading your taste (${n + 1} of ${likes.length})...`, []);
-    const doc = await quietly(() => deps.cached(`ol:seed:${item.key}`, 30 * DAY, async () => {
-      const d = (await deps.fetchJson(seedUrl(item))).docs?.[0];
-      return d ? slim(d) : null;
-    }), null);
-    if (doc) seeds.push({ item, doc });
-  }
+  const recent = (signal, n) => taste.filter((i) => i.signal === signal).sort((a, b) => b.addedAt.localeCompare(a.addedAt)).slice(0, n);
+  // Open Library details for each book, looked up once and kept for 30 days.
+  const lookUp = async (items, label) => {
+    const out = [];
+    for (const [n, item] of items.entries()) {
+      onProgress(`${label} (${n + 1} of ${items.length})...`, []);
+      const doc = await quietly(() => deps.cached(`ol:seed:${item.key}`, 30 * DAY, async () => {
+        const d = (await deps.fetchJson(seedUrl(item))).docs?.[0];
+        return d ? slim(d) : null;
+      }), null);
+      if (doc) out.push({ item, doc });
+    }
+    return out;
+  };
+  const seeds = await lookUp(recent('liked', 30), 'Reading your taste');
   if (!seeds.length) return [];
+  const avoid = buildProfile(await lookUp(recent('disliked', 10), 'Reading what you did not like'));
 
   const profile = buildProfile(seeds);
   const urls = [...profile.topSubjects.map(subjectUrl), ...profile.topAuthors.map(authorUrl)];
@@ -134,7 +146,7 @@ export async function recommend({ taste, deps, onProgress = () => {}, want = 10 
     docs.push(...(await quietly(() => deps.cached(`ol:q:${url}`, 7 * DAY, async () => ((await deps.fetchJson(url)).docs ?? []).map(slim)), [])));
   }
 
-  const candidates = scoreCandidates(profile, seeds, docs, taste);
+  const candidates = scoreCandidates(profile, seeds, docs, taste, 80, avoid);
   // Returns the candidate with its catalogue records if a copy is on a shelf somewhere, else null.
   const check = async (c) => {
     // "match2": matches cached before the surname and title-filter fixes could be wrongly empty.

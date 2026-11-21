@@ -43,6 +43,26 @@ test('scoreCandidates ranks similar books, excludes read ones, caps books per au
   assert.equal(out.find((c) => c.doc.authorKey === 'A1').reason, 'More by Shirley Jackson, who wrote The Haunting of Hill House');
 });
 
+test('scoreCandidates pushes down books like the ones you disliked', () => {
+  const profile = buildProfile(seeds);
+  const avoid = buildProfile([{ item: { title: 'Twilight' }, doc: doc('/works/90', 'Twilight', 'Stephenie Meyer', 'M', ['vampires', 'teen romance']) }]);
+  const docs = [
+    doc('/works/20', 'Teen Vampire Love', 'A Writer', 'W1', ['horror tales', 'teen romance']),
+    doc('/works/21', 'Old House', 'B Writer', 'W2', ['horror tales', 'old houses']),
+    doc('/works/22', 'New Moon', 'Stephenie Meyer', 'M', ['horror tales']),
+  ];
+  const scoreOf = (list, title) => list.find((c) => c.doc.title === title)?.score;
+  const without = scoreCandidates(profile, seeds, docs, []);
+  const withAvoid = scoreCandidates(profile, seeds, docs, [], 80, avoid);
+  assert.equal(scoreOf(without, 'Old House'), scoreOf(without, 'Teen Vampire Love'), 'equal without dislikes');
+  assert.ok(scoreOf(withAvoid, 'Old House') > scoreOf(withAvoid, 'Teen Vampire Love'), '"teen romance" only appears in a disliked book');
+  assert.ok(without.some((c) => c.doc.title === 'New Moon'));
+  assert.ok(!withAvoid.some((c) => c.doc.title === 'New Moon'), 'author you only dislike is skipped');
+  // "vampires" is shared with liked Dracula, so it is not held against a book.
+  const vamp = doc('/works/23', 'Vampire Tale', 'C Writer', 'W3', ['vampires', 'horror tales']);
+  assert.equal(scoreCandidates(profile, seeds, [vamp], [], 80, avoid)[0].score, scoreCandidates(profile, seeds, [vamp], [])[0].score);
+});
+
 test('pickRecords keeps physical editions of the same book only', () => {
   const records = [
     { catKey: '1', title: 'The shining', author: 'King, Stephen, 1947- author.', format: 'Books' },
