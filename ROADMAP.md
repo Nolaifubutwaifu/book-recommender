@@ -110,7 +110,7 @@ Result: done. Not yet built: badges on the single-book detail page, Firefox.
 First build takes about 45 to 60 seconds (Open Library at 1 request per second, catalogue at 2 per second). Repeat visits use the cache.
 
 Known limits:
-- Disliked books are only excluded. They don't push similar books down yet.
+- Disliked books push similar books down (subjects only disliked books have, at half weight) and authors you only dislike are skipped (added 21 Nov 2026).
 - Open Library subjects are crowd-sourced and noisy. Some picks are loose (e.g. *World War Z* for a Dracula fan).
 - Goodreads and StoryGraph column names were written from documentation and tested on sample files, not on a real export yet.
 
@@ -137,7 +137,7 @@ Plan (built on branch `multi-library`, one commit per network, so any step can b
 - [~] Gold Coast: added (13 branches). Not verified: its copy lookups are bot-protected, so only a real browser can check them, and its status wording is assumed to match Brisbane. Needs one manual check.
 - [x] Libraries Tasmania: 45 public branches, own status rule (shelf location = on shelf, "Due <date>", "In Transit", "Hold awaiting pickup" = not), no token needed, no branch filter. Verified end to end.
 - [ ] SA One Card: skipped. A bot check sits in front of the site, and getting past it automatically is not acceptable. Needs a person to open it once and note the profile name in the address (`/client/en_AU/<council>/`) and the Status wording on a book page.
-- [x] Spydus adapter (`extension/lib/spydus.mjs`): City of Melbourne (7 branches) and Libraries ACT (9 branches). Verified end to end. Slower than SirsiDynix: search pages are heavy and copies need two requests outside a results page. Cards show no author, so likes on Spydus result pages match on title only. No "For you" panel on Spydus home pages yet (it is on results pages).
+- [x] Spydus adapter (`extension/lib/spydus.mjs`): City of Melbourne (7 branches) and Libraries ACT (9 branches). Verified end to end. Recommendations match with a title + author search (Melbourne via its RSS feed): 10 recommendations in about 50 s (Melbourne) and 85 s (Canberra) on a first run. Melbourne's result cards show no author, so likes there match on title only. "For you" panel on home and results pages.
 - [ ] Later: Sydney (Montage), Darwin (WorldCat), Perth.
 
 The recommendation pipeline needs no changes: it only receives "search" and "get copies" functions, so each network plugs in its own.
